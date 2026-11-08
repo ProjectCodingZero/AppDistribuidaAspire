@@ -1,0 +1,28 @@
+@page "/payment/{Status}"
+
+<PageTitle>Resultado del pago | MercadoClone</PageTitle>
+
+<section class="empty-state" aria-live="polite">
+	@switch (Status.ToLowerInvariant())
+	{
+		case "success":
+			<h1>Regresaste de Mercado Pago</h1>
+			<p>El resultado final del pago debe confirmarse en el servidor antes de procesar el pedido.</p>
+			break;
+		case "pending":
+			<h1>Pago pendiente</h1>
+			<p>Mercado Pago todavía está procesando el pago.</p>
+			break;
+		default:
+			<h1>Pago no completado</h1>
+			<p>El pago no se completó. Podés volver a la tienda e intentarlo nuevamente.</p>
+			break;
+	}
+
+	<a href="/">Volver a la tienda</a>
+</section>
+
+@code {
+	[Parameter]
+	public string Status { get; set; } = string.Empty;
+}

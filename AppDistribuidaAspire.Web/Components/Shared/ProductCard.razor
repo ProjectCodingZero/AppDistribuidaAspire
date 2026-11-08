@@ -1,0 +1,34 @@
+@using AppDistribuidaAspire.Web.Models
+
+<article class="product-card">
+	<div class="product-image-wrap">
+		<img class="product-image"
+			 src="@Product.ImageUrl"
+			 alt="@Product.Name"
+			 loading="lazy" />
+	</div>
+
+	<div class="product-info">
+		<p class="product-name">@Product.Name</p>
+		<p class="product-category">@Product.Category</p>
+		<p class="product-price">$ @Product.Price.ToString("N0")</p>
+
+		<button class="add-to-cart-button"
+				type="button"
+				disabled="@IsProcessing"
+				@onclick="() => OnPurchase.InvokeAsync(Product)">
+			@(IsProcessing ? "Conectando..." : "Pagar con Mercado Pago")
+		</button>
+	</div>
+</article>
+
+@code {
+	[Parameter, EditorRequired]
+	public StoreProduct Product { get; set; } = default!;
+
+	[Parameter]
+	public EventCallback<StoreProduct> OnPurchase { get; set; }
+
+	[Parameter]
+	public bool IsProcessing { get; set; }
+}

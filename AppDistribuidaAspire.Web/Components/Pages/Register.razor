@@ -1,0 +1,85 @@
+@page "/register"
+@using System.ComponentModel.DataAnnotations
+@inject AppDistribuidaAspire.Web.Services.AuthenticationApiClient AuthenticationClient
+@inject NavigationManager Navigation
+
+<PageTitle>Crear cuenta | MercadoClone</PageTitle>
+
+<div class="auth-page">
+	<a class="auth-brand" href="/">Mercado<span>Clone</span></a>
+
+	<section class="auth-card" aria-labelledby="register-title">
+		<p class="auth-eyebrow">EMPEZÁ A COMPRAR</p>
+		<h1 id="register-title">Creá tu cuenta</h1>
+		<p class="auth-description">Completá tus datos para registrarte.</p>
+
+		@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+		{
+			<div class="auth-error" role="alert">@ErrorMessage</div>
+		}
+
+		<EditForm Model="Input" FormName="register" OnValidSubmit="HandleSubmitAsync">
+			<DataAnnotationsValidator />
+			<div class="auth-field">
+				<label for="register-email">Correo electrónico</label>
+				<InputText id="register-email" type="email" autocomplete="email" @bind-Value="Input.Email" />
+				<ValidationMessage For="() => Input.Email" />
+			</div>
+
+			<div class="auth-field">
+				<label for="register-password">Contraseña</label>
+				<InputText id="register-password" type="password" autocomplete="new-password" @bind-Value="Input.Password" />
+				<ValidationMessage For="() => Input.Password" />
+				<small>Usá al menos 10 caracteres, con mayúscula, minúscula y número.</small>
+			</div>
+
+			<div class="auth-field">
+				<label for="register-confirm-password">Confirmar contraseña</label>
+				<InputText id="register-confirm-password" type="password" autocomplete="new-password" @bind-Value="Input.ConfirmPassword" />
+				<ValidationMessage For="() => Input.ConfirmPassword" />
+			</div>
+
+			<button class="auth-submit" type="submit">Crear cuenta</button>
+		</EditForm>
+
+		<p class="auth-switch">¿Ya tenés cuenta? <a href="/login">Iniciar sesión</a></p>
+		<a class="auth-back" href="/">← Volver a MercadoClone</a>
+	</section>
+
+	<p class="auth-demo-note">Sitio de demostración. Las cuentas se almacenan en la base de datos local del proyecto.</p>
+</div>
+
+@code {
+	private string? ErrorMessage { get; set; }
+
+	[SupplyParameterFromForm]
+	private RegisterInput Input { get; set; } = new();
+
+	private async Task HandleSubmitAsync()
+	{
+		var result = await AuthenticationClient.RegisterAsync(Input.Email, Input.Password);
+		if (!result.Succeeded)
+		{
+			ErrorMessage = result.ErrorMessage ?? "No se pudo crear la cuenta. Revisá los datos e intentá nuevamente.";
+			return;
+		}
+
+		Navigation.NavigateTo("/login?registered=true", forceLoad: true);
+	}
+
+	private sealed class RegisterInput
+	{
+		[Required(ErrorMessage = "Ingresá tu correo electrónico.")]
+		[EmailAddress(ErrorMessage = "Ingresá un correo válido.")]
+		public string Email { get; set; } = string.Empty;
+
+		[Required(ErrorMessage = "Ingresá una contraseña.")]
+		[MinLength(10, ErrorMessage = "La contraseña debe tener al menos 10 caracteres.")]
+		[RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$", ErrorMessage = "La contraseña debe incluir mayúscula, minúscula y número.")]
+		public string Password { get; set; } = string.Empty;
+
+		[Required(ErrorMessage = "Confirmá tu contraseña.")]
+		[Compare(nameof(Password), ErrorMessage = "Las contraseñas no coinciden.")]
+		public string ConfirmPassword { get; set; } = string.Empty;
+	}
+}

@@ -1,0 +1,111 @@
+@page "/login"
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject AppDistribuidaAspire.Web.Services.AuthenticationApiClient AuthenticationClient
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager Navigation
+
+<PageTitle>Iniciar sesión | MercadoClone</PageTitle>
+
+<div class="auth-page">
+	<a class="auth-brand" href="/">Mercado<span>Clone</span></a>
+
+	<section class="auth-card" aria-labelledby="login-title">
+		<p class="auth-eyebrow">QUÉ BUENO VERTE</p>
+		<h1 id="login-title">Iniciá sesión</h1>
+		<p class="auth-description">Ingresá tus datos para continuar.</p>
+
+		@if (Registered)
+		{
+			<div class="auth-success" role="status">Tu cuenta fue creada. Ya podés iniciar sesión.</div>
+		}
+
+		@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+		{
+			<div class="auth-error" role="alert">@ErrorMessage</div>
+		}
+
+		<EditForm Model="Input" FormName="login" OnValidSubmit="HandleSubmitAsync">
+			<DataAnnotationsValidator />
+			<div class="auth-field">
+				<label for="login-email">Correo electrónico</label>
+				<InputText id="login-email" type="email" autocomplete="email" @bind-Value="Input.Email" />
+				<ValidationMessage For="() => Input.Email" />
+			</div>
+
+			<div class="auth-field">
+				<label for="login-password">Contraseña</label>
+				<InputText id="login-password" type="password" autocomplete="current-password" @bind-Value="Input.Password" />
+				<ValidationMessage For="() => Input.Password" />
+			</div>
+
+			<button class="auth-submit" type="submit">Ingresar</button>
+		</EditForm>
+
+		<p class="auth-switch">¿Todavía no tenés cuenta? <a href="/register">Crear cuenta</a></p>
+		<a class="auth-back" href="/">← Volver a MercadoClone</a>
+	</section>
+
+	<p class="auth-demo-note">Sitio de demostración. Las cuentas se almacenan en la base de datos local del proyecto.</p>
+</div>
+
+@code {
+	private string? ErrorMessage { get; set; }
+
+	[SupplyParameterFromQuery]
+	private bool Registered { get; set; }
+
+	[SupplyParameterFromForm]
+	private LoginInput Input { get; set; } = new();
+
+	private async Task HandleSubmitAsync()
+	{
+		var result = await AuthenticationClient.LoginAsync(Input.Email, Input.Password);
+		if (!result.Succeeded || result.AccessToken is null || result.ExpiresAt is null)
+		{
+			ErrorMessage = result.ErrorMessage ?? "No se pudo iniciar la sesión. Intentá nuevamente.";
+			return;
+		}
+
+		var httpContext = HttpContextAccessor.HttpContext;
+		if (httpContext is null)
+		{
+			ErrorMessage = "No se pudo completar la sesión. Volvé a intentarlo.";
+			return;
+		}
+
+		var claims = new List<Claim>
+		{
+			new(ClaimTypes.NameIdentifier, Input.Email),
+			new(ClaimTypes.Name, Input.Email),
+			new(ClaimTypes.Email, Input.Email),
+			new("mercadoclone:access_token", result.AccessToken)
+		};
+		var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+		var principal = new ClaimsPrincipal(identity);
+
+		await httpContext.SignInAsync(
+			CookieAuthenticationDefaults.AuthenticationScheme,
+			principal,
+			new AuthenticationProperties
+			{
+				IsPersistent = true,
+				ExpiresUtc = result.ExpiresAt,
+				AllowRefresh = false
+			});
+
+		Navigation.NavigateTo("/", forceLoad: true);
+	}
+
+	private sealed class LoginInput
+	{
+		[Required(ErrorMessage = "Ingresá tu correo electrónico.")]
+		[EmailAddress(ErrorMessage = "Ingresá un correo válido.")]
+		public string Email { get; set; } = string.Empty;
+
+		[Required(ErrorMessage = "Ingresá tu contraseña.")]
+		public string Password { get; set; } = string.Empty;
+	}
+}

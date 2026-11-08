@@ -1,7 +1,183 @@
 ﻿@page "/"
+@rendermode InteractiveServer
+@using AppDistribuidaAspire.Web.Models
+@using AppDistribuidaAspire.Web.Components.Shared
+@using AppDistribuidaAspire.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject PaymentsApiClient PaymentsApiClient
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>MercadoClone | Comprá online</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="storefront">
+	<header class="store-header">
+		<div class="header-main">
+			<a class="brand" href="/" aria-label="MercadoClone, inicio">
+				<span class="brand-mark" aria-hidden="true">🤝</span>
+				<span>Mercado<span class="brand-light">Clone</span></span>
+			</a>
 
-Welcome to your new app.
+			<div class="delivery-location">
+				<span class="location-icon" aria-hidden="true">⌖</span>
+				<span><small>Enviar a</small><strong>Capital Federal</strong></span>
+			</div>
+
+			<label class="search-box">
+				<span class="visually-hidden">Buscar productos</span>
+				<input type="search"
+					   placeholder="Buscar productos, marcas y más..."
+					   @bind="SearchTerm"
+					   @bind:event="oninput" />
+				<span class="search-icon" aria-hidden="true">⌕</span>
+			</label>
+
+			<div class="account-actions">
+				<AuthorizeView>
+					<Authorized Context="authState">
+						<span class="user-name">Hola, @authState.User.Identity?.Name</span>
+						<form method="post" action="/account/logout">
+							<AntiforgeryToken />
+							<button class="logout-button" type="submit">Salir</button>
+						</form>
+					</Authorized>
+					<NotAuthorized>
+						<a class="header-link" href="/login">Ingresá</a>
+						<a class="header-link" href="/register">Creá tu cuenta</a>
+					</NotAuthorized>
+				</AuthorizeView>
+			</div>
+		</div>
+
+		<nav class="category-nav" aria-label="Navegación principal">
+			<div class="category-links">
+				<button class="@(SelectedCategory is null ? "category-active" : null)" @onclick="ShowAll">Categorías</button>
+				@foreach (var category in Categories)
+				{
+					<button class="@(SelectedCategory == category ? "category-active" : null)"
+							@onclick="() => SelectCategory(category)">
+						@category
+					</button>
+				}
+			</div>
+			<a href="#productos">Ver productos</a>
+		</nav>
+	</header>
+
+	<section class="hero-banner" aria-label="Promoción destacada">
+		<div class="hero-copy">
+			<span class="hero-eyebrow">CATÁLOGO DE DEMOSTRACIÓN</span>
+			<h1>Encontrá eso que<br />estabas buscando.</h1>
+			<p>Productos de muestra para probar la experiencia de compra.</p>
+			<a class="hero-cta" href="#productos">Descubrir productos <span aria-hidden="true">→</span></a>
+		</div>
+		<div class="hero-art" aria-hidden="true">
+			<span class="hero-circle"></span>
+			<span class="hero-box">📦</span>
+			<span class="hero-sparkle">✦</span>
+		</div>
+	</section>
+
+	<section class="products-section" id="productos">
+		<div class="section-heading">
+			<div>
+				<p class="section-eyebrow">PRODUCTOS DE MUESTRA</p>
+				<h2>@(SelectedCategory ?? "Catálogo")</h2>
+			</div>
+			<span class="products-count">@FilteredProducts.Count productos</span>
+		</div>
+
+		@if (FilteredProducts.Count == 0)
+		{
+			<div class="empty-state">
+				<span aria-hidden="true">🔎</span>
+				<h3>No encontramos productos</h3>
+				<p>Probá con otra búsqueda o elegí una categoría diferente.</p>
+				<button type="button" @onclick="ClearFilters">Ver todos los productos</button>
+			</div>
+		}
+		else
+		{
+			<div class="product-grid">
+				@foreach (var product in FilteredProducts)
+				{
+					<ProductCard @key="product.Id"
+							 Product="product"
+							 IsProcessing="@(PurchasingProductId == product.Id)"
+							 OnPurchase="StartCheckoutAsync" />
+				}
+			</div>
+		}
+
+		@if (!string.IsNullOrWhiteSpace(PaymentError))
+		{
+			<p class="empty-state" role="alert">@PaymentError</p>
+		}
+	</section>
+
+	<footer class="store-footer">
+		<span>El pago se completa de forma segura en Mercado Pago.</span>
+		<span>© 2026 MercadoClone</span>
+	</footer>
+</div>
+
+@code {
+	private string SearchTerm { get; set; } = string.Empty;
+	private string? SelectedCategory { get; set; }
+	private int? PurchasingProductId { get; set; }
+	private string? PaymentError { get; set; }
+
+	private static readonly string[] Categories = ["Tecnología", "Hogar", "Moda", "Deportes"];
+
+	private static readonly IReadOnlyList<StoreProduct> Products =
+	[
+		new(1, "Auriculares inalámbricos", "Tecnología", 84999,
+			"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=80"),
+		new(2, "Reloj inteligente", "Tecnología", 124999,
+			"https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=700&q=80"),
+		new(3, "Lámpara de mesa", "Hogar", 42999,
+			"https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=700&q=80"),
+		new(4, "Mochila urbana", "Moda", 59999,
+			"https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=700&q=80"),
+		new(5, "Zapatillas deportivas", "Deportes", 72999,
+			"https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=80"),
+		new(6, "Cámara instantánea", "Tecnología", 159999,
+			"https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=700&q=80")
+	];
+
+	private IReadOnlyList<StoreProduct> FilteredProducts => Products
+		.Where(product => SelectedCategory is null || product.Category == SelectedCategory)
+		.Where(product => string.IsNullOrWhiteSpace(SearchTerm) ||
+						  product.Name.Contains(SearchTerm.Trim(), StringComparison.OrdinalIgnoreCase) ||
+						  product.Category.Contains(SearchTerm.Trim(), StringComparison.OrdinalIgnoreCase))
+		.ToList();
+
+	private void SelectCategory(string category) => SelectedCategory = category;
+
+	private void ShowAll() => SelectedCategory = null;
+
+	private void ClearFilters()
+	{
+		SearchTerm = string.Empty;
+		SelectedCategory = null;
+	}
+
+	private async Task StartCheckoutAsync(StoreProduct product)
+	{
+		PurchasingProductId = product.Id;
+		PaymentError = null;
+
+		try
+		{
+			var checkout = await PaymentsApiClient.CreateCheckoutAsync(product.Id);
+			Navigation.NavigateTo(checkout.CheckoutUrl, forceLoad: true);
+		}
+		catch (HttpRequestException)
+		{
+			PaymentError = "No pudimos iniciar el pago. Intentá nuevamente más tarde.";
+		}
+		finally
+		{
+			PurchasingProductId = null;
+		}
+	}
+}
