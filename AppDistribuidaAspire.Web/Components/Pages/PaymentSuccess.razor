@@ -1,0 +1,31 @@
+@page "/payment/success"
+@rendermode InteractiveServer
+@using AppDistribuidaAspire.Web.Components.Shared
+
+<PageTitle>Confirmación de compra | MercadoClone</PageTitle>
+
+<div class="payment-result-page">
+	<div class="payment-result-shell">
+		<a class="payment-brand" href="/" aria-label="MercadoClone, volver al inicio">
+			<span class="brand-mark" aria-hidden="true">🤝</span>
+			<span>Mercado<span class="brand-light">Clone</span></span>
+		</a>
+		<p class="payment-return-note">Actualización segura de tu compra</p>
+
+		<PaymentVerificationView PaymentId="@EffectivePaymentId" ExternalReference="@ExternalReference" />
+		<a class="continue-shopping" href="/">Volver a la tienda <span aria-hidden="true">→</span></a>
+	</div>
+</div>
+
+@code {
+	[SupplyParameterFromQuery(Name = "payment_id")]
+	public string? PaymentId { get; set; }
+
+	[SupplyParameterFromQuery(Name = "collection_id")]
+	public string? CollectionId { get; set; }
+
+	[SupplyParameterFromQuery(Name = "external_reference")]
+	public string? ExternalReference { get; set; }
+
+	private string? EffectivePaymentId => PaymentId ?? CollectionId;
+}

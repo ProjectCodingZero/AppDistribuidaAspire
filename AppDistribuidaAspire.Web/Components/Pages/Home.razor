@@ -1,11 +1,12 @@
 ﻿@page "/"
 @rendermode InteractiveServer
+@implements IDisposable
 @using AppDistribuidaAspire.Web.Models
 @using AppDistribuidaAspire.Web.Components.Shared
 @using AppDistribuidaAspire.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @inject PaymentsApiClient PaymentsApiClient
-@inject NavigationManager Navigation
+@inject CartService Cart
 
 <PageTitle>MercadoClone | Comprá online</PageTitle>
 
@@ -35,6 +36,7 @@
 				<AuthorizeView>
 					<Authorized Context="authState">
 						<span class="user-name">Hola, @authState.User.Identity?.Name</span>
+						<a class="header-link" href="/account/purchases">Mis compras</a>
 						<form method="post" action="/account/logout">
 							<AntiforgeryToken />
 							<button class="logout-button" type="submit">Salir</button>
@@ -46,6 +48,9 @@
 					</NotAuthorized>
 				</AuthorizeView>
 			</div>
+			<a class="cart-button" href="/cart" title="Ver carrito" aria-label="Ver carrito, @Cart.ItemCount productos">
+				🛒 <span class="cart-count" aria-live="polite">@Cart.ItemCount</span>
+			</a>
 		</div>
 
 		<nav class="category-nav" aria-label="Navegación principal">
@@ -86,7 +91,15 @@
 			<span class="products-count">@FilteredProducts.Count productos</span>
 		</div>
 
-		@if (FilteredProducts.Count == 0)
+		@if (IsLoading)
+		{
+			<div class="empty-state"><p>Cargando productos...</p></div>
+		}
+		else if (CatalogError is not null)
+		{
+			<div class="empty-state" role="alert"><p>@CatalogError</p></div>
+		}
+		else if (FilteredProducts.Count == 0)
 		{
 			<div class="empty-state">
 				<span aria-hidden="true">🔎</span>
@@ -102,15 +115,15 @@
 				{
 					<ProductCard @key="product.Id"
 							 Product="product"
-							 IsProcessing="@(PurchasingProductId == product.Id)"
-							 OnPurchase="StartCheckoutAsync" />
+							 CartReady="@IsCartReady"
+							 OnAddToCart="AddToCart" />
 				}
 			</div>
 		}
 
-		@if (!string.IsNullOrWhiteSpace(PaymentError))
+		@if (!string.IsNullOrWhiteSpace(AddedProductMessage))
 		{
-			<p class="empty-state" role="alert">@PaymentError</p>
+			<p class="cart-notice" role="status">@AddedProductMessage</p>
 		}
 	</section>
 
@@ -123,32 +136,19 @@
 @code {
 	private string SearchTerm { get; set; } = string.Empty;
 	private string? SelectedCategory { get; set; }
-	private int? PurchasingProductId { get; set; }
-	private string? PaymentError { get; set; }
-
-	private static readonly string[] Categories = ["Tecnología", "Hogar", "Moda", "Deportes"];
-
-	private static readonly IReadOnlyList<StoreProduct> Products =
-	[
-		new(1, "Auriculares inalámbricos", "Tecnología", 84999,
-			"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=80"),
-		new(2, "Reloj inteligente", "Tecnología", 124999,
-			"https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=700&q=80"),
-		new(3, "Lámpara de mesa", "Hogar", 42999,
-			"https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=700&q=80"),
-		new(4, "Mochila urbana", "Moda", 59999,
-			"https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=700&q=80"),
-		new(5, "Zapatillas deportivas", "Deportes", 72999,
-			"https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=80"),
-		new(6, "Cámara instantánea", "Tecnología", 159999,
-			"https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=700&q=80")
-	];
+	private IReadOnlyList<StoreProduct> Products { get; set; } = [];
+	private IReadOnlyList<string> Categories => Products.Select(product => product.Category).Distinct().Order().ToArray();
+	private bool IsLoading { get; set; } = true;
+	private bool IsCartReady { get; set; }
+	private string? CatalogError { get; set; }
+	private string? AddedProductMessage { get; set; }
 
 	private IReadOnlyList<StoreProduct> FilteredProducts => Products
 		.Where(product => SelectedCategory is null || product.Category == SelectedCategory)
 		.Where(product => string.IsNullOrWhiteSpace(SearchTerm) ||
 						  product.Name.Contains(SearchTerm.Trim(), StringComparison.OrdinalIgnoreCase) ||
-						  product.Category.Contains(SearchTerm.Trim(), StringComparison.OrdinalIgnoreCase))
+						  product.Category.Contains(SearchTerm.Trim(), StringComparison.OrdinalIgnoreCase) ||
+						  product.Brand.Contains(SearchTerm.Trim(), StringComparison.OrdinalIgnoreCase))
 		.ToList();
 
 	private void SelectCategory(string category) => SelectedCategory = category;
@@ -161,23 +161,41 @@
 		SelectedCategory = null;
 	}
 
-	private async Task StartCheckoutAsync(StoreProduct product)
+	protected override async Task OnInitializedAsync()
 	{
-		PurchasingProductId = product.Id;
-		PaymentError = null;
+		Cart.Changed += OnCartChanged;
 
 		try
 		{
-			var checkout = await PaymentsApiClient.CreateCheckoutAsync(product.Id);
-			Navigation.NavigateTo(checkout.CheckoutUrl, forceLoad: true);
+			Products = await PaymentsApiClient.GetProductsAsync();
 		}
 		catch (HttpRequestException)
 		{
-			PaymentError = "No pudimos iniciar el pago. Intentá nuevamente más tarde.";
+			CatalogError = "No pudimos cargar los productos. Intentá recargar la página.";
 		}
 		finally
 		{
-			PurchasingProductId = null;
+			IsLoading = false;
 		}
 	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!IsCartReady && !IsLoading && CatalogError is null)
+		{
+			await Cart.InitializeAsync(Products);
+			IsCartReady = true;
+			StateHasChanged();
+		}
+	}
+
+	private async Task AddToCart(StoreProduct product)
+	{
+		await Cart.AddAsync(product);
+		AddedProductMessage = $"Agregaste {product.Name} al carrito.";
+	}
+
+	private void OnCartChanged() => _ = InvokeAsync(StateHasChanged);
+
+	public void Dispose() => Cart.Changed -= OnCartChanged;
 }

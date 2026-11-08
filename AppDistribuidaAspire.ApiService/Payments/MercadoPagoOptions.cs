@@ -8,4 +8,5 @@ public sealed class MercadoPagoOptions
     public string? FailureUrl { get; set; }
     public string? PendingUrl { get; set; }
     public string? NotificationUrl { get; set; }
+    public string? WebhookSecret { get; set; }
 }

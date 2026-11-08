@@ -1,0 +1,177 @@
+@page "/account/purchases"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@rendermode InteractiveServer
+@using AppDistribuidaAspire.Web.Services
+@inject PaymentsApiClient PaymentsApiClient
+
+<PageTitle>Mis compras | MercadoClone</PageTitle>
+
+<main class="purchase-page">
+	<div class="purchase-shell">
+		<a class="purchase-back" href="/">← Volver a la tienda</a>
+		<header class="purchase-header">
+			<div>
+				<p class="purchase-eyebrow">MI CUENTA <span>/</span> ACTIVIDAD</p>
+				<h1>Mis compras</h1>
+				<p>Consultá el estado y los detalles de tus pedidos.</p>
+			</div>
+			<div class="purchase-header-icon" aria-hidden="true">🛍️</div>
+		</header>
+
+		@if (IsLoading)
+		{
+			<section class="purchase-message purchase-loading" role="status">
+				<span class="purchase-spinner" aria-hidden="true"></span>
+				<p>Cargando tu historial...</p>
+			</section>
+		}
+		else if (ErrorMessage is not null)
+		{
+			<section class="purchase-message purchase-error" role="alert">
+				<span class="purchase-message-icon" aria-hidden="true">!</span>
+				<div>
+					<h2>No pudimos cargar tus compras</h2>
+					<p>@ErrorMessage</p>
+					<button class="purchase-retry" type="button" @onclick="LoadPurchasesAsync">Intentar de nuevo</button>
+				</div>
+			</section>
+		}
+		else if (Purchases.Count == 0)
+		{
+			<section class="purchase-empty">
+				<div class="purchase-empty-icon" aria-hidden="true">📦</div>
+				<h2>Todavía no tenés compras</h2>
+				<p>Cuando realices un pedido, vas a poder consultar acá su estado y los productos.</p>
+				<a class="purchase-primary-link" href="/">Explorar productos <span aria-hidden="true">→</span></a>
+			</section>
+		}
+		else
+		{
+			<section class="purchase-summary" aria-label="Resumen de compras">
+				<div class="summary-card summary-total">
+					<span class="summary-icon" aria-hidden="true">▤</span>
+					<div><span>Pedidos registrados</span><strong>@Purchases.Count</strong></div>
+				</div>
+				<div class="summary-card summary-approved">
+					<span class="summary-icon" aria-hidden="true">✓</span>
+					<div><span>Pagos aprobados</span><strong>@CountByStatus("approved")</strong></div>
+				</div>
+				<div class="summary-card summary-pending">
+					<span class="summary-icon" aria-hidden="true">◷</span>
+					<div><span>En proceso</span><strong>@CountByStatus("pending", "in_process", "creating_preference")</strong></div>
+				</div>
+			</section>
+
+			<div class="purchase-list-heading">
+				<h2>Tu actividad</h2>
+				<span>@Purchases.Count @(Purchases.Count == 1 ? "pedido" : "pedidos")</span>
+			</div>
+
+			<section class="purchase-history" aria-label="Compras de esta cuenta">
+				@foreach (var purchase in Purchases)
+				{
+					<article class="purchase-card" @key="purchase.Id">
+						<header class="purchase-card-header">
+							<div class="purchase-order-id">
+								<span class="order-icon" aria-hidden="true">▤</span>
+								<div><span>Número de pedido</span><h3>#@purchase.Id</h3></div>
+							</div>
+							<div class="purchase-card-meta">
+								<time datetime="@purchase.CreatedAtUtc.ToString("O")">@purchase.CreatedAtUtc.ToLocalTime().ToString("g")</time>
+								<span class="purchase-status @GetStatusClass(purchase.Status)">
+									<span class="status-dot" aria-hidden="true"></span>@GetStatusLabel(purchase.Status)
+								</span>
+							</div>
+						</header>
+
+						<div class="purchase-card-body">
+							<div class="purchase-total-row">
+								<div>
+									<span>Total del pedido</span>
+									@if (purchase.ApprovedAtUtc is not null)
+									{
+										<small>Aprobado el @purchase.ApprovedAtUtc.Value.ToLocalTime().ToString("d")</small>
+									}
+								</div>
+								<strong>@purchase.Currency @purchase.Amount.ToString("N2")</strong>
+							</div>
+
+							@if (purchase.IsDevelopmentSample)
+							{
+								<p class="development-sample-note"><span aria-hidden="true">ⓘ</span> Registro de ejemplo del entorno Development</p>
+							}
+							@if (!string.IsNullOrWhiteSpace(purchase.StatusDetail))
+							{
+								<p class="purchase-status-detail">@purchase.StatusDetail</p>
+							}
+
+							<div class="purchase-items">
+								<h4>Productos <span>@purchase.Items.Sum(item => item.Quantity)</span></h4>
+								<ul>
+									@foreach (var item in purchase.Items)
+									{
+										<li>
+											<span class="purchase-item-icon" aria-hidden="true">□</span>
+											<span class="purchase-item-name">@item.ProductName<small>Cantidad: @item.Quantity</small></span>
+											<strong>@purchase.Currency @item.UnitPrice.ToString("N2")</strong>
+										</li>
+									}
+								</ul>
+							</div>
+						</div>
+					</article>
+				}
+			</section>
+		}
+	</div>
+</main>
+
+@code {
+	private IReadOnlyList<PurchaseHistoryEntry> Purchases { get; set; } = [];
+	private bool IsLoading { get; set; } = true;
+	private string? ErrorMessage { get; set; }
+
+	protected override Task OnInitializedAsync() => LoadPurchasesAsync();
+
+	private async Task LoadPurchasesAsync()
+	{
+		IsLoading = true;
+		ErrorMessage = null;
+
+		try
+		{
+			Purchases = await PaymentsApiClient.GetPurchaseHistoryAsync();
+		}
+		catch (HttpRequestException)
+		{
+			ErrorMessage = "No se pudo cargar el historial. Iniciá sesión nuevamente e intentá otra vez.";
+		}
+		finally
+		{
+			IsLoading = false;
+		}
+	}
+
+	private int CountByStatus(params string[] statuses) =>
+		Purchases.Count(purchase => statuses.Contains(purchase.Status, StringComparer.OrdinalIgnoreCase));
+
+	private static string GetStatusClass(string status) => status.ToLowerInvariant() switch
+	{
+		"approved" => "status-approved",
+		"rejected" or "checkout_error" => "status-error",
+		"pending" or "in_process" or "creating_preference" => "status-pending",
+		"cancelled" => "status-cancelled",
+		_ => "status-default"
+	};
+
+	private static string GetStatusLabel(string status) => status.ToLowerInvariant() switch
+	{
+		"approved" => "Aprobado",
+		"rejected" => "Rechazado",
+		"pending" or "in_process" => "Pendiente",
+		"cancelled" => "Cancelado",
+		"creating_preference" => "Iniciando checkout",
+		"checkout_error" => "Error al iniciar checkout",
+		_ => status
+	};
+}

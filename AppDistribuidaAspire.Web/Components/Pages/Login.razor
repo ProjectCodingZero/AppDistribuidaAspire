@@ -57,13 +57,16 @@
 	[SupplyParameterFromQuery]
 	private bool Registered { get; set; }
 
+	[SupplyParameterFromQuery(Name = "returnUrl")]
+	private string? ReturnUrl { get; set; }
+
 	[SupplyParameterFromForm]
 	private LoginInput Input { get; set; } = new();
 
 	private async Task HandleSubmitAsync()
 	{
 		var result = await AuthenticationClient.LoginAsync(Input.Email, Input.Password);
-		if (!result.Succeeded || result.AccessToken is null || result.ExpiresAt is null)
+		if (!result.Succeeded || result.AccessToken is null || result.ExpiresAt is null || result.UserId is null)
 		{
 			ErrorMessage = result.ErrorMessage ?? "No se pudo iniciar la sesión. Intentá nuevamente.";
 			return;
@@ -78,7 +81,7 @@
 
 		var claims = new List<Claim>
 		{
-			new(ClaimTypes.NameIdentifier, Input.Email),
+			new(ClaimTypes.NameIdentifier, result.UserId),
 			new(ClaimTypes.Name, Input.Email),
 			new(ClaimTypes.Email, Input.Email),
 			new("mercadoclone:access_token", result.AccessToken)
@@ -96,7 +99,10 @@
 				AllowRefresh = false
 			});
 
-		Navigation.NavigateTo("/", forceLoad: true);
+		var destination = ReturnUrl is { Length: > 0 } && ReturnUrl.StartsWith('/') && !ReturnUrl.StartsWith("//")
+			? ReturnUrl
+			: "/";
+		Navigation.NavigateTo(destination, forceLoad: true);
 	}
 
 	private sealed class LoginInput

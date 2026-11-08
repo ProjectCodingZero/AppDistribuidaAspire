@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 
 namespace AppDistribuidaAspire.Web.Services;
@@ -42,10 +43,25 @@ public sealed class AuthenticationApiClient(HttpClient httpClient)
                 return new(false, "No se pudo iniciar la sesión. Intentá nuevamente.");
             }
 
+            using var accountRequest = new HttpRequestMessage(HttpMethod.Get, "auth/me");
+            accountRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+            using var accountResponse = await httpClient.SendAsync(accountRequest);
+            if (!accountResponse.IsSuccessStatusCode)
+            {
+                return new(false, "No se pudo obtener la cuenta autenticada. Intentá nuevamente.");
+            }
+
+            var account = await accountResponse.Content.ReadFromJsonAsync<AccountResponse>();
+            if (string.IsNullOrWhiteSpace(account?.Id))
+            {
+                return new(false, "No se pudo obtener la cuenta autenticada. Intentá nuevamente.");
+            }
+
             return new(
                 true,
                 AccessToken: token.AccessToken,
-                ExpiresAt: DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn));
+                ExpiresAt: DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn),
+                UserId: account.Id);
         }
         catch (HttpRequestException)
         {
@@ -94,10 +110,13 @@ public sealed class AuthenticationApiClient(HttpClient httpClient)
     private sealed record Credentials(string Email, string Password);
 
     private sealed record TokenResponse(string? AccessToken, int ExpiresIn);
+
+    private sealed record AccountResponse(string? Id, string? Email);
 }
 
 public sealed record AccountOperationResult(
     bool Succeeded,
     string? ErrorMessage = null,
     string? AccessToken = null,
-    DateTimeOffset? ExpiresAt = null);
+    DateTimeOffset? ExpiresAt = null,
+    string? UserId = null);

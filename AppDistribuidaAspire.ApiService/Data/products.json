@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "name": "Auriculares inalámbricos SoundBeat",
+    "category": "Tecnología",
+    "brand": "SoundBeat",
+    "description": "Auriculares Bluetooth con cancelación de ruido y hasta 30 horas de batería.",
+    "price": 84999,
+    "stock": 18,
+    "imageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 2,
+    "name": "Reloj inteligente Active",
+    "category": "Tecnología",
+    "brand": "Active",
+    "description": "Monitoreo de actividad, ritmo cardíaco y notificaciones desde tu teléfono.",
+    "price": 124999,
+    "stock": 12,
+    "imageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 3,
+    "name": "Lámpara de mesa Nórdica",
+    "category": "Hogar",
+    "brand": "Casa Clara",
+    "description": "Lámpara de diseño minimalista con luz cálida para escritorio o mesa de luz.",
+    "price": 42999,
+    "stock": 24,
+    "imageUrl": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 4,
+    "name": "Mochila urbana Explorer",
+    "category": "Moda",
+    "brand": "Explorer",
+    "description": "Mochila resistente con compartimento acolchado para notebook y bolsillos laterales.",
+    "price": 59999,
+    "stock": 15,
+    "imageUrl": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 5,
+    "name": "Zapatillas deportivas Run",
+    "category": "Deportes",
+    "brand": "Run",
+    "description": "Calzado liviano con suela flexible para entrenamiento y uso diario.",
+    "price": 72999,
+    "stock": 20,
+    "imageUrl": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 6,
+    "name": "Cámara instantánea Snap",
+    "category": "Tecnología",
+    "brand": "Snap",
+    "description": "Cámara instantánea compacta para imprimir y compartir tus recuerdos.",
+    "price": 159999,
+    "stock": 7,
+    "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 7,
+    "name": "Sillón de lectura Nube",
+    "category": "Hogar",
+    "brand": "Casa Clara",
+    "description": "Sillón cómodo de líneas modernas, ideal para crear un rincón de lectura.",
+    "price": 289999,
+    "stock": 4,
+    "imageUrl": "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 8,
+    "name": "Anteojos de sol Urban",
+    "category": "Moda",
+    "brand": "Urban",
+    "description": "Anteojos livianos con protección UV para acompañarte todos los días.",
+    "price": 34999,
+    "stock": 30,
+    "imageUrl": "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 9,
+    "name": "Botella térmica Trail",
+    "category": "Deportes",
+    "brand": "Trail",
+    "description": "Botella reutilizable de acero inoxidable con aislamiento térmico.",
+    "price": 22999,
+    "stock": 35,
+    "imageUrl": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=900&q=85"
+  }
+]

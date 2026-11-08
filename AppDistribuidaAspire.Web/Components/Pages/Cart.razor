@@ -1,0 +1,153 @@
+@page "/cart"
+@rendermode InteractiveServer
+@implements IDisposable
+@using AppDistribuidaAspire.Web.Models
+@using AppDistribuidaAspire.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject CartService CartState
+@inject PaymentsApiClient PaymentsApiClient
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Tu carrito | MercadoClone</PageTitle>
+
+<main class="cart-page">
+	<a class="continue-shopping" href="/">← Seguir comprando</a>
+	<h1>Tu carrito</h1>
+
+	@if (!IsCartReady)
+	{
+		<section class="empty-state" role="status">
+			<p>@(CatalogError ?? "Cargando el carrito...")</p>
+		</section>
+	}
+	else if (CartState.Items.Count == 0)
+	{
+		<section class="empty-state">
+			<span aria-hidden="true">🛒</span>
+			<h2>Tu carrito está vacío</h2>
+			<p>Agregá productos del catálogo para continuar.</p>
+			<a class="hero-cta" href="/">Ver productos</a>
+		</section>
+	}
+	else
+	{
+		<div class="cart-layout">
+			<section class="cart-items" aria-label="Productos en el carrito">
+				@foreach (var line in CartState.Items)
+				{
+					<article class="cart-line" @key="line.Product.Id">
+						<img src="@line.Product.ImageUrl" alt="@line.Product.Name" loading="lazy" />
+						<div class="cart-line-details">
+							<p class="product-category">@line.Product.Brand · @line.Product.Category</p>
+							<h2>@line.Product.Name</h2>
+							<p class="cart-line-price">$ @line.Product.Price.ToString("N0")</p>
+							<div class="quantity-controls" aria-label="Cantidad de @line.Product.Name">
+								<button type="button" aria-label="Quitar una unidad" @onclick="() => CartState.SetQuantityAsync(line.Product.Id, line.Quantity - 1)">−</button>
+								<span>@line.Quantity</span>
+								<button type="button"
+										aria-label="Agregar una unidad"
+										disabled="@(line.Quantity >= line.Product.Stock)"
+										@onclick="() => CartState.SetQuantityAsync(line.Product.Id, line.Quantity + 1)">+</button>
+							</div>
+						</div>
+						<div class="cart-line-total">
+							<strong>$ @((line.Product.Price * line.Quantity).ToString("N0"))</strong>
+							<button class="remove-item-button" type="button" @onclick="() => CartState.RemoveAsync(line.Product.Id)">Eliminar</button>
+						</div>
+					</article>
+				}
+			</section>
+
+			<aside class="cart-summary">
+				<h2>Resumen de compra</h2>
+				<div><span>Productos (@CartState.ItemCount)</span><strong>$ @CartState.Total.ToString("N0")</strong></div>
+				<div class="cart-grand-total"><span>Total</span><strong>$ @CartState.Total.ToString("N0")</strong></div>
+				<button class="checkout-button" type="button" disabled="@(!IsCartReady || IsCheckingOut)" @onclick="CheckoutAsync">
+					@(IsCheckingOut ? "Conectando con Mercado Pago..." : "Continuar con Mercado Pago")
+				</button>
+				<p class="sandbox-note">Se abrirá Checkout Pro en modo de prueba.</p>
+				@if (CheckoutError is not null)
+				{
+					<p class="checkout-error" role="alert">@CheckoutError</p>
+				}
+			</aside>
+		</div>
+	}
+</main>
+
+@code {
+	private bool IsCheckingOut { get; set; }
+	private bool IsLoading { get; set; } = true;
+	private bool IsCartReady { get; set; }
+	private string? CheckoutError { get; set; }
+	private string? CatalogError { get; set; }
+	private IReadOnlyList<StoreProduct> Products { get; set; } = [];
+
+	protected override void OnInitialized() => CartState.Changed += OnCartChanged;
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			Products = await PaymentsApiClient.GetProductsAsync();
+		}
+		catch (HttpRequestException)
+		{
+			CatalogError = "No se pudo cargar el catálogo para recuperar el carrito.";
+		}
+		finally
+		{
+			IsLoading = false;
+		}
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!IsCartReady && !IsLoading && CatalogError is null)
+		{
+			await CartState.InitializeAsync(Products);
+			IsCartReady = true;
+			StateHasChanged();
+		}
+	}
+
+	private async Task CheckoutAsync()
+	{
+		if (!IsCartReady || CartState.Items.Count == 0 || IsCheckingOut)
+		{
+			return;
+		}
+
+		var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		if (authenticationState.User.Identity?.IsAuthenticated != true)
+		{
+			Navigation.NavigateTo("/login?returnUrl=%2Fcart");
+			return;
+		}
+
+		IsCheckingOut = true;
+		CheckoutError = null;
+
+		try
+		{
+			var items = CartState.Items
+				.Select(line => new CartCheckoutItem(line.Product.Id, line.Quantity))
+				.ToArray();
+			var checkout = await PaymentsApiClient.CreateCheckoutAsync(items);
+			Navigation.NavigateTo(checkout.CheckoutUrl, forceLoad: true);
+		}
+		catch (HttpRequestException)
+		{
+			CheckoutError = "No pudimos iniciar el checkout. Revisá la configuración de Mercado Pago e intentá otra vez.";
+		}
+		finally
+		{
+			IsCheckingOut = false;
+		}
+	}
+
+	private void OnCartChanged() => _ = InvokeAsync(StateHasChanged);
+
+	public void Dispose() => CartState.Changed -= OnCartChanged;
+}

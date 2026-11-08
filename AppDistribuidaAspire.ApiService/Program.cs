@@ -1,7 +1,10 @@
 using AppDistribuidaAspire.ApiService;
+using AppDistribuidaAspire.ApiService.Data;
 using AppDistribuidaAspire.ApiService.Payments;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,12 +34,14 @@ builder.Services.AddIdentityApiEndpoints<IdentityUser>(options =>
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 builder.Services.Configure<MercadoPagoOptions>(builder.Configuration.GetSection("MercadoPago"));
+builder.Services.AddSingleton<ProductCatalog>();
 builder.Services.AddHttpClient(nameof(MercadoPagoCheckoutService), client =>
 {
     client.BaseAddress = new Uri("https://api.mercadopago.com/");
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddScoped<MercadoPagoCheckoutService>();
+builder.Services.AddScoped<MercadoPagoPaymentVerificationService>();
 // Add services to the container.
 builder.Services.AddProblemDetails();
 
@@ -48,7 +53,11 @@ var app = builder.Build();
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var database = scope.ServiceProvider.GetRequiredService<ThisContext>();
-    await database.Database.EnsureCreatedAsync();
+    await DatabaseSchemaInitializer.InitializeAsync(database);
+    if (app.Environment.IsDevelopment())
+    {
+        await DevelopmentDataSeeder.SeedAsync(scope.ServiceProvider, app.Configuration, app.Logger);
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -65,28 +74,199 @@ string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "
 
 app.MapGet("/", () => "API service is running. Navigate to /weatherforecast to see sample data.");
 
-app.MapGroup("/auth")
-    .MapIdentityApi<IdentityUser>();
+var authEndpoints = app.MapGroup("/auth");
+authEndpoints.MapIdentityApi<IdentityUser>();
+authEndpoints.MapGet("/me", async (ClaimsPrincipal principal, UserManager<IdentityUser> userManager) =>
+{
+    var user = await userManager.GetUserAsync(principal);
+    return user is null
+        ? Results.Unauthorized()
+        : Results.Ok(new { user.Id, user.Email });
+}).RequireAuthorization();
+
+app.MapGet("/api/products", (ProductCatalog catalog) => Results.Ok(catalog.Products));
 
 app.MapPost("/api/payments/checkout-preferences", async (
     CreateCheckoutRequest request,
+    ClaimsPrincipal principal,
+    ProductCatalog catalog,
     MercadoPagoCheckoutService checkoutService,
+    ThisContext database,
     CancellationToken cancellationToken) =>
 {
-    if (request.Quantity is < 1 or > 10)
+    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrWhiteSpace(userId))
     {
-        return Results.BadRequest(new { error = "La cantidad debe estar entre 1 y 10." });
+        return Results.Unauthorized();
     }
 
-    if (!CheckoutCatalog.TryGetProduct(request.ProductId, out var product))
+    if (request.Items is null || request.Items.Count == 0 || request.Items.Count > 20)
     {
-        return Results.BadRequest(new { error = "El producto seleccionado no existe." });
+        return Results.BadRequest(new { error = "El carrito debe contener entre 1 y 20 productos distintos." });
+    }
+
+    if (request.Items.Select(item => item.ProductId).Distinct().Count() != request.Items.Count)
+    {
+        return Results.BadRequest(new { error = "El carrito contiene productos duplicados." });
+    }
+
+    var checkoutLines = new List<CheckoutLine>();
+    foreach (var item in request.Items)
+    {
+        if (item.Quantity is < 1 or > 10)
+        {
+            return Results.BadRequest(new { error = "Cada cantidad debe estar entre 1 y 10." });
+        }
+
+        if (!catalog.TryGetProduct(item.ProductId, out var product))
+        {
+            return Results.BadRequest(new { error = "El carrito contiene un producto inexistente." });
+        }
+
+        if (item.Quantity > product.Stock)
+        {
+            return Results.BadRequest(new { error = $"No hay stock suficiente para {product.Name}." });
+        }
+
+        checkoutLines.Add(new CheckoutLine(product, item.Quantity));
+    }
+
+    var externalReference = Guid.NewGuid().ToString("N");
+    var order = new PaymentOrder
+    {
+        ExternalReference = externalReference,
+        Status = "creating_preference",
+        UserId = userId,
+        Amount = checkoutLines.Sum(line => line.Product.Price * line.Quantity),
+        Currency = "ARS",
+        CreatedAtUtc = DateTime.UtcNow,
+        Items = checkoutLines.Select(line => new PaymentOrderItem
+        {
+            ProductId = line.Product.Id,
+            ProductName = line.Product.Name,
+            Quantity = line.Quantity,
+            UnitPrice = line.Product.Price
+        }).ToList()
+    };
+    database.PaymentOrders.Add(order);
+    await database.SaveChangesAsync(cancellationToken);
+
+    try
+    {
+        var preference = await checkoutService.CreatePreferenceAsync(checkoutLines, externalReference, cancellationToken);
+        order.PreferenceId = preference.PreferenceId;
+        order.Status = "pending";
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Ok(preference);
+    }
+    catch (InvalidOperationException exception)
+    {
+        order.Status = "checkout_error";
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Problem(exception.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (HttpRequestException)
+    {
+        order.Status = "checkout_error";
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Problem("No se pudo crear la preferencia de pago con Mercado Pago.", statusCode: StatusCodes.Status502BadGateway);
+    }
+}).RequireAuthorization();
+
+app.MapPost("/api/payments/webhook", async (
+    HttpRequest request,
+    IOptions<MercadoPagoOptions> configuredOptions,
+    MercadoPagoPaymentVerificationService verificationService,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken) =>
+{
+    var options = configuredOptions.Value;
+    if (string.IsNullOrWhiteSpace(options.WebhookSecret))
+    {
+        return Results.Problem("Mercado Pago webhook is not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    var paymentId = request.Query["data.id"].FirstOrDefault() ?? request.Query["id"].FirstOrDefault();
+    if (!MercadoPagoWebhookSignatureValidator.IsValid(
+            request.Headers["x-signature"].FirstOrDefault(),
+            request.Headers["x-request-id"].FirstOrDefault(),
+            paymentId,
+            options.WebhookSecret))
+    {
+        return Results.Unauthorized();
     }
 
     try
     {
-        var preference = await checkoutService.CreatePreferenceAsync(product, request.Quantity, cancellationToken);
-        return Results.Ok(preference);
+        var handled = await verificationService.ProcessWebhookAsync(paymentId!, cancellationToken);
+        if (!handled)
+        {
+            logger.LogWarning("Mercado Pago webhook payment {PaymentId} did not match a pending local order.", paymentId);
+        }
+
+        return Results.Ok();
+    }
+    catch (HttpRequestException)
+    {
+        return Results.Problem("Could not retrieve the payment from Mercado Pago.", statusCode: StatusCodes.Status502BadGateway);
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.Problem("Mercado Pago credentials are not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (ArgumentException)
+    {
+        return Results.BadRequest();
+    }
+}).AllowAnonymous();
+
+app.MapGet("/api/payments/return/{externalReference}", async (
+    string externalReference,
+    ClaimsPrincipal principal,
+    MercadoPagoPaymentVerificationService verificationService,
+    CancellationToken cancellationToken) =>
+{
+    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var payment = await verificationService.GetOrderStatusAsync(externalReference, userId, cancellationToken);
+        return payment is null ? Results.NotFound() : Results.Ok(payment);
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.Problem("Mercado Pago credentials are not configured.", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (HttpRequestException)
+    {
+        return Results.Problem("Could not verify the payment with Mercado Pago.", statusCode: StatusCodes.Status502BadGateway);
+    }
+}).RequireAuthorization();
+
+app.MapGet("/api/payments/verify/{paymentId}", async (
+    string paymentId,
+    ClaimsPrincipal principal,
+    MercadoPagoPaymentVerificationService verificationService,
+    CancellationToken cancellationToken) =>
+{
+    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var payment = await verificationService.VerifyAsync(paymentId, userId, cancellationToken);
+        return payment is null ? Results.NotFound() : Results.Ok(payment);
+    }
+    catch (ArgumentException)
+    {
+        return Results.BadRequest(new { error = "El identificador del pago no es válido." });
     }
     catch (InvalidOperationException exception)
     {
@@ -94,9 +274,48 @@ app.MapPost("/api/payments/checkout-preferences", async (
     }
     catch (HttpRequestException)
     {
-        return Results.Problem("No se pudo crear la preferencia de pago con Mercado Pago.", statusCode: StatusCodes.Status502BadGateway);
+        return Results.Problem("No se pudo verificar el pago con Mercado Pago.", statusCode: StatusCodes.Status502BadGateway);
     }
-});
+}).RequireAuthorization();
+
+app.MapGet("/api/account/purchases", async (
+    ClaimsPrincipal principal,
+    ThisContext database,
+    CancellationToken cancellationToken) =>
+{
+    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    var purchases = await database.PaymentOrders
+        .AsNoTracking()
+        .Include(order => order.Items)
+        .Where(order => order.UserId == userId)
+        .OrderByDescending(order => order.CreatedAtUtc)
+        .Select(order => new
+        {
+            order.Id,
+            order.Status,
+            order.StatusDetail,
+            order.Amount,
+            order.Currency,
+            order.CreatedAtUtc,
+            order.ApprovedAtUtc,
+            order.IsDevelopmentSample,
+            Items = order.Items.Select(item => new
+            {
+                item.ProductId,
+                item.ProductName,
+                item.Quantity,
+                item.UnitPrice
+            }).ToArray()
+        })
+        .ToListAsync(cancellationToken);
+
+    return Results.Ok(purchases);
+}).RequireAuthorization();
 
 app.MapGet("/weatherforecast", () =>
 {

@@ -10,14 +10,16 @@
 
 	<div class="product-info">
 		<p class="product-name">@Product.Name</p>
-		<p class="product-category">@Product.Category</p>
+		<p class="product-category">@Product.Category · @Product.Brand</p>
+		<p class="product-description">@Product.Description</p>
 		<p class="product-price">$ @Product.Price.ToString("N0")</p>
+		<p class="product-stock">@(Product.Stock > 0 ? $"Stock: {Product.Stock}" : "Sin stock")</p>
 
 		<button class="add-to-cart-button"
 				type="button"
-				disabled="@IsProcessing"
-				@onclick="() => OnPurchase.InvokeAsync(Product)">
-			@(IsProcessing ? "Conectando..." : "Pagar con Mercado Pago")
+				disabled="@(Product.Stock == 0 || !CartReady)"
+				@onclick="() => OnAddToCart.InvokeAsync(Product)">
+			@(CartReady ? "Agregar al carrito" : "Cargando carrito...")
 		</button>
 	</div>
 </article>
@@ -27,8 +29,8 @@
 	public StoreProduct Product { get; set; } = default!;
 
 	[Parameter]
-	public EventCallback<StoreProduct> OnPurchase { get; set; }
+	public EventCallback<StoreProduct> OnAddToCart { get; set; }
 
 	[Parameter]
-	public bool IsProcessing { get; set; }
+	public bool CartReady { get; set; }
 }

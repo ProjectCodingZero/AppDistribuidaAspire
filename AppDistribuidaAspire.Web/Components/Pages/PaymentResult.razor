@@ -1,28 +1,34 @@
 @page "/payment/{Status}"
+@rendermode InteractiveServer
+@using AppDistribuidaAspire.Web.Components.Shared
 
 <PageTitle>Resultado del pago | MercadoClone</PageTitle>
 
-<section class="empty-state" aria-live="polite">
-	@switch (Status.ToLowerInvariant())
-	{
-		case "success":
-			<h1>Regresaste de Mercado Pago</h1>
-			<p>El resultado final del pago debe confirmarse en el servidor antes de procesar el pedido.</p>
-			break;
-		case "pending":
-			<h1>Pago pendiente</h1>
-			<p>Mercado Pago todavía está procesando el pago.</p>
-			break;
-		default:
-			<h1>Pago no completado</h1>
-			<p>El pago no se completó. Podés volver a la tienda e intentarlo nuevamente.</p>
-			break;
-	}
+<div class="payment-result-page">
+	<div class="payment-result-shell">
+		<a class="payment-brand" href="/" aria-label="MercadoClone, volver al inicio">
+			<span class="brand-mark" aria-hidden="true">🤝</span>
+			<span>Mercado<span class="brand-light">Clone</span></span>
+		</a>
+		<p class="payment-return-note">Actualización segura de tu compra</p>
 
-	<a href="/">Volver a la tienda</a>
-</section>
+		<PaymentVerificationView PaymentId="@EffectivePaymentId" ExternalReference="@ExternalReference" />
+		<a class="continue-shopping" href="/">Volver a la tienda <span aria-hidden="true">→</span></a>
+	</div>
+</div>
 
 @code {
 	[Parameter]
 	public string Status { get; set; } = string.Empty;
+
+	[SupplyParameterFromQuery(Name = "payment_id")]
+	public string? PaymentId { get; set; }
+
+	[SupplyParameterFromQuery(Name = "collection_id")]
+	public string? CollectionId { get; set; }
+
+	[SupplyParameterFromQuery(Name = "external_reference")]
+	public string? ExternalReference { get; set; }
+
+	private string? EffectivePaymentId => PaymentId ?? CollectionId;
 }

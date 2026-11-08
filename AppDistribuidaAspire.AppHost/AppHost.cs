@@ -4,7 +4,7 @@ var apiService = builder.AddProject<Projects.AppDistribuidaAspire_ApiService>("a
     .WithHttpHealthCheck("/health");
 
 builder.AddProject<Projects.AppDistribuidaAspire_Web>("webfrontend")
-    .WithExternalHttpEndpoints()
+    .WithHttpsEndpoint(port: 7034)
     .WithHttpHealthCheck("/health")
     .WithReference(apiService)
     .WaitFor(apiService);

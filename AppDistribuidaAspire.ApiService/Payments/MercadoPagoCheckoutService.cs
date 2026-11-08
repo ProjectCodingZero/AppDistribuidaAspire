@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 
@@ -7,13 +8,14 @@ namespace AppDistribuidaAspire.ApiService.Payments;
 
 public sealed class MercadoPagoCheckoutService(
     IHttpClientFactory httpClientFactory,
-    IOptions<MercadoPagoOptions> options)
+    IOptions<MercadoPagoOptions> options,
+    IHostEnvironment environment)
 {
     private readonly MercadoPagoOptions _options = options.Value;
 
     public async Task<CreateCheckoutResponse> CreatePreferenceAsync(
-        CheckoutProduct product,
-        int quantity,
+        IReadOnlyList<CheckoutLine> items,
+        string externalReference,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.AccessToken))
@@ -21,25 +23,40 @@ public sealed class MercadoPagoCheckoutService(
             throw new InvalidOperationException("Mercado Pago AccessToken is not configured.");
         }
 
+        var expectedTokenPrefix = _options.UseSandbox ? "TEST-" : "APP_USR-";
+        if (!_options.AccessToken.StartsWith(expectedTokenPrefix, StringComparison.Ordinal))
+        {
+            var environmentName = _options.UseSandbox ? "sandbox" : "production";
+            throw new InvalidOperationException(
+                $"Mercado Pago {environmentName} requires an access token beginning with {expectedTokenPrefix}.");
+        }
+
         if (!Uri.TryCreate(_options.SuccessUrl, UriKind.Absolute, out var successUrl) ||
             !Uri.TryCreate(_options.FailureUrl, UriKind.Absolute, out var failureUrl) ||
-            !Uri.TryCreate(_options.PendingUrl, UriKind.Absolute, out var pendingUrl))
+            !Uri.TryCreate(_options.PendingUrl, UriKind.Absolute, out var pendingUrl) ||
+            !IsAllowedReturnUrl(successUrl) ||
+            !IsAllowedReturnUrl(failureUrl) ||
+            !IsAllowedReturnUrl(pendingUrl) ||
+            (!string.IsNullOrWhiteSpace(_options.NotificationUrl) &&
+             (!Uri.TryCreate(_options.NotificationUrl, UriKind.Absolute, out var notificationUrl) ||
+              !IsAllowedReturnUrl(notificationUrl))))
         {
-            throw new InvalidOperationException("Mercado Pago return URLs are not configured with absolute URLs.");
+            throw new InvalidOperationException(
+                "Mercado Pago return and notification URLs must use HTTPS and, outside Development, a public non-localhost host.");
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "checkout/preferences");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AccessToken);
         request.Content = JsonContent.Create(new MercadoPagoPreferenceRequest
         {
-            Items = [new MercadoPagoPreferenceItem
+            Items = items.Select(line => new MercadoPagoPreferenceItem
             {
-                Id = product.Id.ToString(),
-                Title = product.Name,
-                Quantity = quantity,
+                Id = line.Product.Id.ToString(),
+                Title = line.Product.Name,
+                Quantity = line.Quantity,
                 CurrencyId = "ARS",
-                UnitPrice = product.Price
-            }],
+                UnitPrice = line.Product.Price
+            }).ToArray(),
             BackUrls = new MercadoPagoBackUrls
             {
                 Success = successUrl.ToString(),
@@ -50,7 +67,7 @@ public sealed class MercadoPagoCheckoutService(
             NotificationUrl = string.IsNullOrWhiteSpace(_options.NotificationUrl)
                 ? null
                 : _options.NotificationUrl,
-            ExternalReference = Guid.NewGuid().ToString("N")
+            ExternalReference = externalReference
         });
 
         var client = httpClientFactory.CreateClient(nameof(MercadoPagoCheckoutService));
@@ -66,6 +83,25 @@ public sealed class MercadoPagoCheckoutService(
         }
 
         return new CreateCheckoutResponse(preference.Id, checkoutUrl);
+    }
+
+    private bool IsAllowedReturnUrl(Uri uri)
+    {
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return false;
+        }
+
+        if (environment.IsDevelopment())
+        {
+            return true;
+        }
+
+        var host = uri.Host;
+        return !string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) &&
+               !host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) &&
+               (!IPAddress.TryParse(host, out var address) || !IPAddress.IsLoopback(address));
     }
 
     private sealed class MercadoPagoPreferenceRequest

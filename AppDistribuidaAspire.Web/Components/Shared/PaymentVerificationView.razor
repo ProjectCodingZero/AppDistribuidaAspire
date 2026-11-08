@@ -1,0 +1,137 @@
+@using AppDistribuidaAspire.Web.Services
+@inject PaymentsApiClient PaymentsApiClient
+
+<section class="payment-card @StateClass" aria-live="polite" aria-busy="@IsVerifying">
+	@if (IsVerifying)
+	{
+		<div class="payment-state-icon" aria-hidden="true">⌛</div>
+		<p class="payment-eyebrow">MERCADO PAGO</p>
+		<h1>Verificando el pago</h1>
+		<p class="payment-description">Estamos consultando el estado directamente con Mercado Pago.</p>
+	}
+	else if (Payment is null)
+	{
+		<div class="payment-state-icon" aria-hidden="true">!</div>
+		<p class="payment-eyebrow">NO PUDIMOS ACTUALIZAR TU COMPRA</p>
+		<h1>No pudimos confirmar el pago</h1>
+		<p class="payment-description">@VerificationMessage</p>
+		@if (!string.IsNullOrWhiteSpace(PaymentId) || !string.IsNullOrWhiteSpace(ExternalReference))
+		{
+			<button class="payment-secondary-button" type="button" @onclick="VerifyPaymentAsync">Volver a consultar</button>
+		}
+	}
+	else
+	{
+		<div class="payment-state-icon" aria-hidden="true">@StatusIcon</div>
+		<p class="payment-eyebrow">ESTADO ACTUAL DE TU COMPRA</p>
+		<h1>@StatusTitle</h1>
+		<p class="payment-description">
+			@if (string.IsNullOrWhiteSpace(Payment.PaymentId))
+			{
+				<span>La orden está registrada y esperamos la confirmación del pago. El resultado del navegador no se toma como confirmación.</span>
+			}
+			else
+			{
+				<span>Estado obtenido por el servidor desde Mercado Pago.</span>
+			}
+		</p>
+		<div class="payment-status-chip">@StatusTitle</div>
+		<dl class="payment-details">
+			@if (!string.IsNullOrWhiteSpace(Payment.PaymentId))
+			{
+				<dt>Pago</dt>
+				<dd>@Payment.PaymentId</dd>
+			}
+			<dt>Preferencia</dt>
+			<dd>@Payment.PreferenceId</dd>
+			<dt>Importe</dt>
+			<dd>$ @Payment.Amount.ToString("N2") @Payment.Currency</dd>
+			<dt>Estado</dt>
+			<dd>@Payment.Status @if (!string.IsNullOrWhiteSpace(Payment.StatusDetail)) { <span>(@Payment.StatusDetail)</span> }</dd>
+			@if (!string.IsNullOrWhiteSpace(Payment.PaymentMethodId))
+			{
+				<dt>Medio de pago</dt>
+				<dd>@Payment.PaymentMethodId</dd>
+			}
+			@if (Payment.ApprovedAtUtc.HasValue)
+			{
+				<dt>Aprobado</dt>
+				<dd>@Payment.ApprovedAtUtc.Value.ToLocalTime().ToString("g")</dd>
+			}
+		</dl>
+		@if (!string.Equals(Payment.Status, "approved", StringComparison.OrdinalIgnoreCase)
+			&& (!string.IsNullOrWhiteSpace(PaymentId) || !string.IsNullOrWhiteSpace(ExternalReference)))
+		{
+			<button class="payment-secondary-button" type="button" @onclick="VerifyPaymentAsync">Actualizar estado</button>
+		}
+	}
+</section>
+
+@code {
+	private VerifiedPayment? Payment { get; set; }
+	private string? VerificationMessage { get; set; }
+	private bool IsVerifying { get; set; }
+	private string StateClass => IsVerifying ? "payment-state-checking" : Payment is null ? "payment-state-error" : Payment.Status.ToLowerInvariant() switch
+	{
+		"approved" => "payment-state-approved",
+		"pending" or "in_process" or "in_mediation" => "payment-state-pending",
+		"rejected" or "cancelled" => "payment-state-rejected",
+		_ => "payment-state-unknown"
+	};
+	private string StatusIcon => Payment?.Status.ToLowerInvariant() switch
+	{
+		"approved" => "✓",
+		"pending" or "in_process" or "in_mediation" => "⌛",
+		"rejected" or "cancelled" => "×",
+		_ => "i"
+	};
+
+	[Parameter]
+	public string? PaymentId { get; set; }
+
+	[Parameter]
+	public string? ExternalReference { get; set; }
+
+	protected override Task OnParametersSetAsync() => VerifyPaymentAsync();
+
+	private async Task VerifyPaymentAsync()
+	{
+		Payment = null;
+		VerificationMessage = null;
+
+		if (string.IsNullOrWhiteSpace(PaymentId) && string.IsNullOrWhiteSpace(ExternalReference))
+		{
+			VerificationMessage = "Mercado Pago no devolvió un identificador de pago ni de orden.";
+			return;
+		}
+
+		IsVerifying = true;
+		try
+		{
+			Payment = !string.IsNullOrWhiteSpace(PaymentId)
+				? await PaymentsApiClient.VerifyPaymentAsync(PaymentId)
+				: await PaymentsApiClient.GetOrderStatusAsync(ExternalReference!);
+			if (Payment is null)
+			{
+				VerificationMessage = "El pago no coincide con una compra creada por esta tienda.";
+			}
+		}
+		catch (HttpRequestException)
+		{
+			VerificationMessage = "No pudimos consultar Mercado Pago. Verificá la conexión e intentá nuevamente.";
+		}
+		finally
+		{
+			IsVerifying = false;
+		}
+	}
+
+	private string StatusTitle => Payment?.Status.ToLowerInvariant() switch
+	{
+		"approved" => "Pago aprobado",
+		"pending" or "in_process" or "in_mediation" => "Pago pendiente",
+		"rejected" => "Pago rechazado",
+		"cancelled" => "Pago cancelado",
+		_ => "Estado del pago"
+	};
+}
