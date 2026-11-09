@@ -86,11 +86,22 @@ authEndpoints.MapGet("/me", async (ClaimsPrincipal principal, UserManager<Identi
 
 app.MapGet("/api/products", (ProductCatalog catalog) => Results.Ok(catalog.Products));
 
+app.MapGet("/api/payments/checkout-config", (IOptions<MercadoPagoOptions> configuredOptions) =>
+{
+    var options = configuredOptions.Value;
+    var mode = string.Equals(options.CheckoutMode, "Demo", StringComparison.OrdinalIgnoreCase)
+        ? "Demo"
+        : "MercadoPago";
+
+    return Results.Ok(new { Mode = mode, AutoApprove = options.AutoApproveCheckout });
+});
+
 app.MapPost("/api/payments/checkout-preferences", async (
     CreateCheckoutRequest request,
     ClaimsPrincipal principal,
     ProductCatalog catalog,
     MercadoPagoCheckoutService checkoutService,
+    IOptions<MercadoPagoOptions> paymentOptions,
     ThisContext database,
     CancellationToken cancellationToken) =>
 {
@@ -99,6 +110,8 @@ app.MapPost("/api/payments/checkout-preferences", async (
     {
         return Results.Unauthorized();
     }
+
+    await PendingOrderExpiration.CancelExpiredAsync(database, cancellationToken);
 
     if (request.Items is null || request.Items.Count == 0 || request.Items.Count > 20)
     {
@@ -151,13 +164,53 @@ app.MapPost("/api/payments/checkout-preferences", async (
     database.PaymentOrders.Add(order);
     await database.SaveChangesAsync(cancellationToken);
 
+    var options = paymentOptions.Value;
+    var demoMode = string.Equals(options.CheckoutMode, "Demo", StringComparison.OrdinalIgnoreCase);
+
+    // Demo mode: approve the purchase right away so the store is always usable
+    // without Mercado Pago credentials or a test buyer account.
+    if (demoMode)
+    {
+        ApproveAsDemo(order);
+        order.CheckoutUrl = CreateDemoCheckout(order).CheckoutUrl;
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Ok(CreateDemoCheckout(order));
+    }
+
     try
     {
         var preference = await checkoutService.CreatePreferenceAsync(checkoutLines, externalReference, cancellationToken);
         order.PreferenceId = preference.PreferenceId;
-        order.Status = "pending";
+        order.CheckoutUrl = preference.CheckoutUrl;
+
+        if (options.AutoApproveCheckout)
+        {
+            order.Status = "approved";
+            order.StatusDetail = "Aprobado automáticamente al iniciar el checkout";
+            order.ApprovedAtUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            order.Status = "pending";
+        }
+
         await database.SaveChangesAsync(cancellationToken);
         return Results.Ok(preference);
+    }
+    catch (InvalidOperationException) when (options.AutoApproveCheckout)
+    {
+        // Mercado Pago is misconfigured, but the demo must keep working.
+        ApproveAsDemo(order);
+        order.CheckoutUrl = CreateDemoCheckout(order).CheckoutUrl;
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Ok(CreateDemoCheckout(order));
+    }
+    catch (HttpRequestException) when (options.AutoApproveCheckout)
+    {
+        ApproveAsDemo(order);
+        order.CheckoutUrl = CreateDemoCheckout(order).CheckoutUrl;
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Ok(CreateDemoCheckout(order));
     }
     catch (InvalidOperationException exception)
     {
@@ -170,6 +223,105 @@ app.MapPost("/api/payments/checkout-preferences", async (
         order.Status = "checkout_error";
         await database.SaveChangesAsync(cancellationToken);
         return Results.Problem("No se pudo crear la preferencia de pago con Mercado Pago.", statusCode: StatusCodes.Status502BadGateway);
+    }
+}).RequireAuthorization();
+
+static void ApproveAsDemo(PaymentOrder order)
+{
+    order.PreferenceId = "demo";
+    order.Status = "approved";
+    order.StatusDetail = "Compra aprobada automáticamente (modo de prueba)";
+    order.ApprovedAtUtc = DateTime.UtcNow;
+}
+
+static CreateCheckoutResponse CreateDemoCheckout(PaymentOrder order) =>
+    new(order.PreferenceId, $"/payment/success?external_reference={Uri.EscapeDataString(order.ExternalReference)}");
+
+app.MapPost("/api/payments/orders/{externalReference}/retry-checkout", async (
+    string externalReference,
+    ClaimsPrincipal principal,
+    IOptions<MercadoPagoOptions> paymentOptions,
+    MercadoPagoCheckoutService checkoutService,
+    ThisContext database,
+    CancellationToken cancellationToken) =>
+{
+    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    await PendingOrderExpiration.CancelExpiredAsync(database, cancellationToken);
+
+    var order = await database.PaymentOrders
+        .Include(candidate => candidate.Items)
+        .SingleOrDefaultAsync(candidate =>
+            candidate.ExternalReference == externalReference && candidate.UserId == userId,
+            cancellationToken);
+    if (order is null)
+    {
+        return Results.NotFound(new { error = "No encontramos ese pedido en tu cuenta." });
+    }
+
+    switch (order.Status.ToLowerInvariant())
+    {
+        case "pending":
+        case "in_process":
+        case "creating_preference":
+            break;
+        case "approved":
+            return Results.Conflict(new { error = "Esta compra ya está aprobada." });
+        case "cancelled":
+            return Results.Conflict(new { error = "El pedido expiró a los 5 minutos sin pago y quedó cancelado. Volvé a armar tu carrito." });
+        default:
+            return Results.Conflict(new { error = "Este pedido ya no se puede pagar. Iniciá una nueva compra desde el carrito." });
+    }
+
+    // While the order is inside the payment window the stored checkout link stays valid.
+    if (!string.IsNullOrWhiteSpace(order.CheckoutUrl))
+    {
+        return Results.Ok(new CreateCheckoutResponse(order.PreferenceId, order.CheckoutUrl));
+    }
+
+    // Preference creation failed earlier: retry with the same products and external reference.
+    var options = paymentOptions.Value;
+    var checkoutLines = order.Items.Select(item => new CheckoutLine(
+        new CatalogProduct(item.ProductId, item.ProductName, string.Empty, string.Empty, string.Empty, item.UnitPrice, 1, string.Empty),
+        item.Quantity)).ToList();
+
+    try
+    {
+        var preference = await checkoutService.CreatePreferenceAsync(checkoutLines, order.ExternalReference, cancellationToken);
+        order.PreferenceId = preference.PreferenceId;
+        order.CheckoutUrl = preference.CheckoutUrl;
+
+        if (options.AutoApproveCheckout)
+        {
+            order.Status = "approved";
+            order.StatusDetail = "Aprobado automáticamente al iniciar el checkout";
+            order.ApprovedAtUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            order.Status = "pending";
+            order.StatusDetail = null;
+            order.ApprovedAtUtc = null;
+        }
+
+        await database.SaveChangesAsync(cancellationToken);
+        return Results.Ok(preference);
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.Problem(
+            "Mercado Pago no está configurado para retomar este pedido. Volvé a armar tu carrito.",
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (HttpRequestException)
+    {
+        return Results.Problem(
+            "No se pudo reiniciar el pago con Mercado Pago. Intentá de nuevo en unos minutos.",
+            statusCode: StatusCodes.Status502BadGateway);
     }
 }).RequireAuthorization();
 
@@ -289,6 +441,8 @@ app.MapGet("/api/account/purchases", async (
         return Results.Unauthorized();
     }
 
+    await PendingOrderExpiration.CancelExpiredAsync(database, cancellationToken);
+
     var purchases = await database.PaymentOrders
         .AsNoTracking()
         .Include(order => order.Items)
@@ -297,6 +451,7 @@ app.MapGet("/api/account/purchases", async (
         .Select(order => new
         {
             order.Id,
+            order.ExternalReference,
             order.Status,
             order.StatusDetail,
             order.Amount,
@@ -315,6 +470,49 @@ app.MapGet("/api/account/purchases", async (
         .ToListAsync(cancellationToken);
 
     return Results.Ok(purchases);
+}).RequireAuthorization();
+
+app.MapGet("/api/account/purchases/{externalReference}", async (
+    string externalReference,
+    ClaimsPrincipal principal,
+    ThisContext database,
+    CancellationToken cancellationToken) =>
+{
+    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrWhiteSpace(userId))
+    {
+        return Results.Unauthorized();
+    }
+
+    await PendingOrderExpiration.CancelExpiredAsync(database, cancellationToken);
+
+    var purchase = await database.PaymentOrders
+        .AsNoTracking()
+        .Include(order => order.Items)
+        .Where(order => order.UserId == userId && order.ExternalReference == externalReference)
+        .OrderByDescending(order => order.CreatedAtUtc)
+        .Select(order => new
+        {
+            order.Id,
+            order.ExternalReference,
+            order.Status,
+            order.StatusDetail,
+            order.Amount,
+            order.Currency,
+            order.CreatedAtUtc,
+            order.ApprovedAtUtc,
+            order.IsDevelopmentSample,
+            Items = order.Items.Select(item => new
+            {
+                item.ProductId,
+                item.ProductName,
+                item.Quantity,
+                item.UnitPrice
+            }).ToArray()
+        })
+        .FirstOrDefaultAsync(cancellationToken);
+
+    return purchase is null ? Results.NotFound() : Results.Ok(purchase);
 }).RequireAuthorization();
 
 app.MapGet("/weatherforecast", () =>

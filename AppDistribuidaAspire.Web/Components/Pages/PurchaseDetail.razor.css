@@ -1,0 +1,126 @@
+.purchase-detail-card {
+    max-width: 640px;
+    margin: 0 auto;
+    border: 1px solid #e5e9ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 5px 18px #1b2b4209;
+    overflow: hidden;
+}
+
+.purchase-detail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #eceff4;
+    background: #fbfcfe;
+}
+
+.purchase-detail-order span {
+    display: block;
+    color: #667386;
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+}
+
+.purchase-detail-order h2 {
+    margin: 3px 0 0;
+    color: #263345;
+    font-size: 20px;
+}
+
+.purchase-detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #8a95a3;
+    font-size: 11px;
+}
+
+.purchase-detail-body {
+    padding: 18px 20px 22px;
+}
+
+.purchase-detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin-top: 18px;
+    padding-top: 15px;
+    border-top: 1px solid #f0f2f5;
+}
+
+.purchase-countdown {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 12px;
+    border: 1px solid #f1dfb2;
+    border-radius: 6px;
+    background: #fff9e9;
+    color: #8a6817;
+    font-size: 12px;
+}
+
+.purchase-countdown strong {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}</think><tool_call>edit<arg_key>newString</arg_key><arg_value>.purchase-countdown strong {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+}
+
+.purchase-retry-primary {
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 7px;
+    background: #3483fa;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s ease;
+}
+
+.purchase-retry-primary:hover { background: #246fe0; }
+.purchase-retry-primary:disabled { opacity: .65; cursor: default; }
+
+.checkout-error {
+    margin: 0;
+    padding: 8px 11px;
+    border: 1px solid #f3cfc4;
+    border-radius: 6px;
+    background: #fff4f1;
+    color: #b42318;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.purchase-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .4px;
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.status-approved { background: #e6f8ed; color: #1d8a4b; }
+.status-pending { background: #fff6e0; color: #9a6b00; }
+.status-error { background: #fff0ef; color: #b42318; }
+.status-cancelled { background: #f1f2f4; color: #68757f; }
+.status-default { background: #f0f3f7; color: #586575; }

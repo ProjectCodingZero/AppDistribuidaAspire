@@ -520,3 +520,44 @@
     .purchase-spinner { animation-duration: 1.8s; }
     .purchase-card, .purchase-back, .purchase-primary-link { transition: none; }
 }
+
+.purchase-card-clickable { cursor: pointer; }
+
+.purchase-card-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f2f5;
+}
+
+.purchase-card-actions .purchase-retry { margin-top: 0; }
+
+.purchase-detail-link {
+    border: 0;
+    border-radius: 6px;
+    padding: 9px 13px;
+    background: transparent;
+    color: #667386;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.purchase-detail-link:hover { color: #295bd1; text-decoration: underline; }
+
+.purchase-card-actions .checkout-error,
+.purchase-card .checkout-error {
+    flex-basis: 100%;
+    margin: 2px 0 0;
+    padding: 8px 11px;
+    border: 1px solid #f3cfc4;
+    border-radius: 6px;
+    background: #fff4f1;
+    color: #b42318;
+    font-size: 11px;
+    line-height: 1.5;
+}

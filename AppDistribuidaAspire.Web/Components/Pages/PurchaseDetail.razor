@@ -1,0 +1,263 @@
+@page "/account/purchases/{ExternalReference}"
+@implements IDisposable
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@rendermode InteractiveServer
+@using AppDistribuidaAspire.Web.Services
+@using AppDistribuidaAspire.Web.Components.Shared
+@inject PaymentsApiClient PaymentsApiClient
+@inject NavigationManager Navigation
+
+<PageTitle>Detalle del pedido | MercadoClone</PageTitle>
+
+<main class="purchase-page">
+	<div class="purchase-shell">
+		<a class="purchase-back" href="/account/purchases">← Volver a mis compras</a>
+		<header class="purchase-header">
+			<div>
+				<p class="purchase-eyebrow">MI CUENTA <span>/</span> MIS COMPRAS</p>
+				<h1>Detalle del pago</h1>
+				<p>Todos los datos del pedido y el estado de su acreditación.</p>
+			</div>
+			<div class="purchase-header-icon" aria-hidden="true">🧾</div>
+		</header>
+
+		@if (IsLoading)
+		{
+			<section class="purchase-message purchase-loading" role="status">
+				<span class="purchase-spinner" aria-hidden="true"></span>
+				<p>Cargando el pedido...</p>
+			</section>
+		}
+		else if (Purchase is null)
+		{
+			<section class="purchase-message purchase-error" role="alert">
+				<span class="purchase-message-icon" aria-hidden="true">!</span>
+				<div>
+					<h2>No pudimos encontrar el pedido</h2>
+					<p>@DetailMessage</p>
+					<a class="purchase-retry" href="/account/purchases">Volver al listado</a>
+				</div>
+			</section>
+		}
+		else
+		{
+			<PaymentVerificationView ExternalReference="@Purchase.ExternalReference" />
+
+			<section class="purchase-detail-card">
+				<header class="purchase-detail-head">
+					<div class="purchase-detail-order">
+						<span>Número de pedido</span>
+						<h2>#@Purchase.Id</h2>
+					</div>
+					<div class="purchase-detail-meta">
+						<time datetime="@Purchase.CreatedAtUtc.ToString("O")">@Purchase.CreatedAtUtc.ToLocalTime().ToString("g")</time>
+						<span class="purchase-status @GetStatusClass(Purchase.Status)">
+							<span class="status-dot" aria-hidden="true"></span>@GetStatusLabel(Purchase.Status)
+						</span>
+					</div>
+				</header>
+				<div class="purchase-detail-body">
+					@if (Purchase.IsDevelopmentSample)
+					{
+						<p class="development-sample-note"><span aria-hidden="true">ⓘ</span> Registro de ejemplo del entorno Development</p>
+					}
+					@if (!string.IsNullOrWhiteSpace(Purchase.StatusDetail))
+					{
+						<p class="purchase-status-detail">@Purchase.StatusDetail</p>
+					}
+
+					<div class="purchase-total-row">
+						<div>
+							<span>Total del pedido</span>
+							@if (Purchase.ApprovedAtUtc is not null)
+							{
+								<small>Aprobado el @Purchase.ApprovedAtUtc.Value.ToLocalTime().ToString("d")</small>
+							}
+						</div>
+						<strong>@Purchase.Currency @Purchase.Amount.ToString("N2")</strong>
+					</div>
+
+					<div class="purchase-items">
+						<h4>Productos <span>@Purchase.Items.Sum(item => item.Quantity)</span></h4>
+						<ul>
+							@foreach (var item in Purchase.Items)
+							{
+								<li>
+									<span class="purchase-item-icon" aria-hidden="true">□</span>
+									<span class="purchase-item-name">@item.ProductName<small>Cantidad: @item.Quantity</small></span>
+									<strong>@item.UnitPrice.ToString("N2")</strong>
+								</li>
+							}
+						</ul>
+					</div>
+
+					@if (IsPayableStatus(Purchase.Status))
+					{
+						<div class="purchase-detail-actions">
+							<p class="purchase-countdown" role="timer">
+								<span aria-hidden="true">⏱</span> Tiempo restante para pagar:
+								<strong>@(CountdownText ?? "—")</strong>
+							</p>
+							<button class="purchase-retry purchase-retry-primary" type="button"
+									disabled="@IsRetryingPayment"
+									@onclick="RetryPaymentAsync">
+								@(IsRetryingPayment ? "Abriendo Mercado Pago..." : "Intentar pago")
+							</button>
+							@if (PaymentError is not null)
+							{
+								<p class="checkout-error" role="alert">@PaymentError</p>
+							}
+						</div>
+					}
+				</div>
+			</section>
+		}
+	</div>
+</main>
+
+@code {
+	/// <summary>Must match PendingOrderExpiration.Window on the API.</summary>
+	private const int PaymentWindowMinutes = 5;
+
+	private PurchaseHistoryEntry? Purchase { get; set; }
+	private bool IsLoading { get; set; } = true;
+	private string? DetailMessage { get; set; }
+	private bool IsRetryingPayment { get; set; }
+	private string? PaymentError { get; set; }
+	private string? CountdownText { get; set; }
+	private System.Threading.Timer? CountdownTimer { get; set; }
+	private bool ReloadRequested { get; set; }
+
+	[Parameter]
+	public string? ExternalReference { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		CountdownTimer = new System.Threading.Timer(
+			_ => InvokeAsync(OnCountdownTick), null, 1000, 1000);
+		await LoadPurchaseAsync();
+	}
+
+	private async Task LoadPurchaseAsync()
+	{
+		IsLoading = true;
+		DetailMessage = null;
+
+		try
+		{
+			Purchase = await PaymentsApiClient.GetPurchaseAsync(ExternalReference!);
+			if (Purchase is null)
+			{
+				DetailMessage = "El pedido no existe o pertenece a otra cuenta.";
+			}
+		}
+		catch (HttpRequestException)
+		{
+			DetailMessage = "No se pudo cargar el detalle del pedido. Intentá otra vez.";
+		}
+		finally
+		{
+			IsLoading = false;
+		}
+	}
+
+	private void OnCountdownTick()
+	{
+		UpdateCountdown();
+
+		if (ReloadRequested)
+		{
+			ReloadRequested = false;
+			_ = LoadPurchaseAsync();
+		}
+
+		StateHasChanged();
+	}
+
+	private void UpdateCountdown()
+	{
+		if (Purchase is null || !IsPayableStatus(Purchase.Status))
+		{
+			CountdownText = null;
+			return;
+		}
+
+		var deadline = DateTime.SpecifyKind(Purchase.CreatedAtUtc, DateTimeKind.Utc)
+			.AddMinutes(PaymentWindowMinutes);
+		var remaining = deadline - DateTime.UtcNow;
+
+		if (remaining <= TimeSpan.Zero)
+		{
+			CountdownText = null;
+			if (!ReloadRequested)
+			{
+				// Ask the API again so it applies the 5-minute cancel rule and shows the
+				// order as cancelled instead of leaving a stale pending state.
+				ReloadRequested = true;
+			}
+
+			return;
+		}
+
+		CountdownText = remaining.TotalHours >= 1
+			? remaining.ToString(@"h\:mm\:ss")
+			: remaining.ToString(@"mm\:ss");
+	}
+
+	private async Task RetryPaymentAsync()
+	{
+		if (Purchase is null || IsRetryingPayment)
+		{
+			return;
+		}
+
+		IsRetryingPayment = true;
+		PaymentError = null;
+
+		try
+		{
+			var checkout = await PaymentsApiClient.RetryCheckoutAsync(Purchase.ExternalReference);
+			Navigation.NavigateTo(
+				checkout.CheckoutUrl,
+				forceLoad: checkout.CheckoutUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+		}
+		catch (InvalidOperationException exception)
+		{
+			PaymentError = exception.Message;
+		}
+		catch (HttpRequestException)
+		{
+			PaymentError = "No se pudo retomar el pago. Intentá otra vez.";
+		}
+		finally
+		{
+			IsRetryingPayment = false;
+			StateHasChanged();
+		}
+	}
+
+	private static bool IsPayableStatus(string status) =>
+		status.ToLowerInvariant() is "pending" or "in_process";
+
+	private static string GetStatusClass(string status) => status.ToLowerInvariant() switch
+	{
+		"approved" => "status-approved",
+		"rejected" or "checkout_error" => "status-error",
+		"pending" or "in_process" or "creating_preference" => "status-pending",
+		"cancelled" => "status-cancelled",
+		_ => "status-default"
+	};
+
+	private static string GetStatusLabel(string status) => status.ToLowerInvariant() switch
+	{
+		"approved" => "Aprobado",
+		"rejected" => "Rechazado",
+		"pending" or "in_process" => "Pendiente",
+		"cancelled" => "Cancelado",
+		"creating_preference" => "Iniciando checkout",
+		"checkout_error" => "Error al iniciar checkout",
+		_ => status
+	};
+
+	public void Dispose() => CountdownTimer?.Dispose();
+}

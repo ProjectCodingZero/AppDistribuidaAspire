@@ -5,6 +5,7 @@ public sealed class PaymentOrder
     public int Id { get; set; }
     public required string ExternalReference { get; set; }
     public string PreferenceId { get; set; } = string.Empty;
+    public string? CheckoutUrl { get; set; }
     public string? PaymentId { get; set; }
     public required string Status { get; set; }
     public string? StatusDetail { get; set; }

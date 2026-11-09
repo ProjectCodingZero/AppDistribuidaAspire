@@ -12,7 +12,7 @@ namespace AppDistribuidaAspire.ApiService.Tests.Payments;
 public sealed class MercadoPagoCheckoutServiceTests
 {
     [Fact]
-    public async Task SandboxPreference_UsesSandboxUrl_AndExpectedOrderDetails()
+    public async Task SandboxPreference_UsesInitPoint_AndExpectedOrderDetails()
     {
         var handler = new StubHttpMessageHandler("""
             {"id":"preference-123","init_point":"https://www.mercadopago.com/checkout/live","sandbox_init_point":"https://sandbox.mercadopago.com/checkout/test"}
@@ -25,7 +25,7 @@ public sealed class MercadoPagoCheckoutServiceTests
             CancellationToken.None);
 
         Assert.Equal("preference-123", result.PreferenceId);
-        Assert.Equal("https://sandbox.mercadopago.com/checkout/test", result.CheckoutUrl);
+        Assert.Equal("https://www.mercadopago.com/checkout/live", result.CheckoutUrl);
         Assert.Equal("Bearer TEST-unit-test-token", handler.Authorization);
 
         using var requestJson = JsonDocument.Parse(handler.RequestBody!);
@@ -42,17 +42,35 @@ public sealed class MercadoPagoCheckoutServiceTests
     }
 
     [Fact]
-    public async Task SandboxPreference_RejectsProductionAccessTokenBeforeCallingProvider()
+    public async Task SandboxPreference_AcceptsAppUsrTestToken()
+    {
+        var handler = new StubHttpMessageHandler("""
+            {"id":"preference-456","init_point":"https://www.mercadopago.com/checkout/test"}
+            """);
+        var service = CreateService(handler, accessToken: "APP_USR-test-token", useSandbox: true);
+
+        var result = await service.CreatePreferenceAsync(
+            [new CheckoutLine(new CatalogProduct(7, "Libro", "Libros", "Editorial", "Descripción", 1500m, 4, "https://example.test/libro"), 1)],
+            "order-ref-123",
+            CancellationToken.None);
+
+        Assert.Equal("preference-456", result.PreferenceId);
+        Assert.Equal("https://www.mercadopago.com/checkout/test", result.CheckoutUrl);
+        Assert.Equal("Bearer APP_USR-test-token", handler.Authorization);
+    }
+
+    [Fact]
+    public async Task ProductionPreference_RejectsTestAccessTokenBeforeCallingProvider()
     {
         var handler = new StubHttpMessageHandler("{}");
-        var service = CreateService(handler, accessToken: "APP_USR-production-token", useSandbox: true);
+        var service = CreateService(handler, accessToken: "TEST-unit-test-token", useSandbox: false);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreatePreferenceAsync(
             [new CheckoutLine(new CatalogProduct(7, "Libro", "Libros", "Editorial", "Descripción", 1500m, 4, "https://example.test/libro"), 1)],
             "order-ref-123",
             CancellationToken.None));
 
-        Assert.Contains("sandbox", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("production", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Null(handler.RequestBody);
     }
 

@@ -110,6 +110,7 @@ public static class DatabaseSchemaInitializer
 
         await EnsureColumnAsync(database, "UserId", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(database, "IsDevelopmentSample", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+        await EnsureColumnAsync(database, "CheckoutUrl", "TEXT NULL", cancellationToken);
         await database.Database.ExecuteSqlRawAsync(
             "CREATE INDEX IF NOT EXISTS \"IX_PaymentOrders_UserId\" ON \"PaymentOrders\" (\"UserId\")",
             cancellationToken);

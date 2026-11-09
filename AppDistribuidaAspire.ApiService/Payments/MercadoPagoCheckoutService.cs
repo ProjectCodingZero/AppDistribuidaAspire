@@ -23,12 +23,14 @@ public sealed class MercadoPagoCheckoutService(
             throw new InvalidOperationException("Mercado Pago AccessToken is not configured.");
         }
 
-        var expectedTokenPrefix = _options.UseSandbox ? "TEST-" : "APP_USR-";
-        if (!_options.AccessToken.StartsWith(expectedTokenPrefix, StringComparison.Ordinal))
+        // Mercado Pago now issues test credentials with the APP_USR- prefix too (the test seller
+        // account is created automatically), so the prefix alone no longer tells test from
+        // production. The only combination we can safely reject is a TEST- token in production,
+        // because it can never process real payments.
+        if (!_options.UseSandbox && _options.AccessToken.StartsWith("TEST-", StringComparison.Ordinal))
         {
-            var environmentName = _options.UseSandbox ? "sandbox" : "production";
             throw new InvalidOperationException(
-                $"Mercado Pago {environmentName} requires an access token beginning with {expectedTokenPrefix}.");
+                "Mercado Pago production requires a production access token (APP_USR-). TEST- tokens only work in sandbox mode.");
         }
 
         if (!Uri.TryCreate(_options.SuccessUrl, UriKind.Absolute, out var successUrl) ||
@@ -39,10 +41,10 @@ public sealed class MercadoPagoCheckoutService(
             !IsAllowedReturnUrl(pendingUrl) ||
             (!string.IsNullOrWhiteSpace(_options.NotificationUrl) &&
              (!Uri.TryCreate(_options.NotificationUrl, UriKind.Absolute, out var notificationUrl) ||
-              !IsAllowedReturnUrl(notificationUrl))))
+              !IsAllowedNotificationUrl(notificationUrl))))
         {
             throw new InvalidOperationException(
-                "Mercado Pago return and notification URLs must use HTTPS and, outside Development, a public non-localhost host.");
+                "Mercado Pago return URLs must use HTTPS. The notification URL must use a public HTTPS host reachable by Mercado Pago.");
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "checkout/preferences");
@@ -75,7 +77,11 @@ public sealed class MercadoPagoCheckoutService(
         response.EnsureSuccessStatusCode();
 
         var preference = await response.Content.ReadFromJsonAsync<MercadoPagoPreferenceResponse>(cancellationToken);
-        var checkoutUrl = _options.UseSandbox ? preference?.SandboxInitPoint : preference?.InitPoint;
+
+        // With test credentials Mercado Pago already routes init_point to the sandbox.
+        // sandbox_init_point is deprecated and can make the checkout fail with
+        // "Una de las partes con la que intentás hacer el pago es de prueba".
+        var checkoutUrl = preference?.InitPoint;
 
         if (string.IsNullOrWhiteSpace(preference?.Id) || string.IsNullOrWhiteSpace(checkoutUrl))
         {
@@ -102,6 +108,27 @@ public sealed class MercadoPagoCheckoutService(
         return !string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) &&
                !host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) &&
                (!IPAddress.TryParse(host, out var address) || !IPAddress.IsLoopback(address));
+    }
+
+    private static bool IsAllowedNotificationUrl(Uri uri)
+    {
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !string.IsNullOrEmpty(uri.UserInfo))
+        {
+            return false;
+        }
+
+        var host = uri.Host;
+        if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".local", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".internal", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".test", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return !IPAddress.TryParse(host, out var address) || !IPAddress.IsLoopback(address);
     }
 
     private sealed class MercadoPagoPreferenceRequest
@@ -159,8 +186,5 @@ public sealed class MercadoPagoCheckoutService(
 
         [JsonPropertyName("init_point")]
         public string? InitPoint { get; init; }
-
-        [JsonPropertyName("sandbox_init_point")]
-        public string? SandboxInitPoint { get; init; }
     }
 }

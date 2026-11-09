@@ -27,5 +27,5 @@
 	[SupplyParameterFromQuery(Name = "external_reference")]
 	public string? ExternalReference { get; set; }
 
-	private string? EffectivePaymentId => PaymentId ?? CollectionId;
+	private string? EffectivePaymentId => !string.IsNullOrWhiteSpace(PaymentId) ? PaymentId : CollectionId;
 }

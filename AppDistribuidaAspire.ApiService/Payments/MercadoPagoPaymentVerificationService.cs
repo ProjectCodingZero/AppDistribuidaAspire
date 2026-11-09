@@ -44,6 +44,8 @@ public sealed class MercadoPagoPaymentVerificationService(
         string userId,
         CancellationToken cancellationToken)
     {
+        await PendingOrderExpiration.CancelExpiredAsync(database, cancellationToken);
+
         var order = await database.PaymentOrders.SingleOrDefaultAsync(
             candidate => candidate.ExternalReference == externalReference && candidate.UserId == userId,
             cancellationToken);

@@ -64,9 +64,12 @@
 				<div><span>Productos (@CartState.ItemCount)</span><strong>$ @CartState.Total.ToString("N0")</strong></div>
 				<div class="cart-grand-total"><span>Total</span><strong>$ @CartState.Total.ToString("N0")</strong></div>
 				<button class="checkout-button" type="button" disabled="@(!IsCartReady || IsCheckingOut)" @onclick="CheckoutAsync">
-					@(IsCheckingOut ? "Conectando con Mercado Pago..." : "Continuar con Mercado Pago")
+					@CheckoutButtonText
 				</button>
-				<p class="sandbox-note">Se abrirá Checkout Pro en modo de prueba.</p>
+				@if (CheckoutNote is not null)
+				{
+					<p class="sandbox-note">@CheckoutNote</p>
+				}
 				@if (CheckoutError is not null)
 				{
 					<p class="checkout-error" role="alert">@CheckoutError</p>
@@ -83,6 +86,17 @@
 	private string? CheckoutError { get; set; }
 	private string? CatalogError { get; set; }
 	private IReadOnlyList<StoreProduct> Products { get; set; } = [];
+	private CheckoutConfig CheckoutConfig { get; set; } = new("MercadoPago", false);
+
+	private string CheckoutButtonText => IsCheckingOut
+		? (CheckoutConfig.IsDemo ? "Procesando compra..." : "Conectando con Mercado Pago...")
+		: (CheckoutConfig.IsDemo ? "Finalizar compra" : "Continuar con Mercado Pago");
+
+	private string? CheckoutNote => CheckoutConfig.IsDemo
+		? "Modo de prueba: la compra se aprueba automáticamente, sin cobro real ni cuenta de Mercado Pago."
+		: CheckoutConfig.AutoApprove
+			? "La compra se registra como aprobada al iniciar el checkout. No se realizará ningún cobro real."
+			: null;
 
 	protected override void OnInitialized() => CartState.Changed += OnCartChanged;
 
@@ -99,6 +113,15 @@
 		finally
 		{
 			IsLoading = false;
+		}
+
+		try
+		{
+			CheckoutConfig = await PaymentsApiClient.GetCheckoutConfigAsync();
+		}
+		catch (HttpRequestException)
+		{
+			// Keep the default (Mercado Pago) if the configuration cannot be read.
 		}
 	}
 
@@ -139,7 +162,7 @@
 		}
 		catch (HttpRequestException)
 		{
-			CheckoutError = "No pudimos iniciar el checkout. Revisá la configuración de Mercado Pago e intentá otra vez.";
+			CheckoutError = "No pudimos iniciar el checkout. Revisá la conexión e intentá otra vez.";
 		}
 		finally
 		{

@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @using AppDistribuidaAspire.Web.Services
 @inject PaymentsApiClient PaymentsApiClient
+@inject NavigationManager Navigation
 
 <PageTitle>Mis compras | MercadoClone</PageTitle>
 
@@ -70,7 +71,7 @@
 			<section class="purchase-history" aria-label="Compras de esta cuenta">
 				@foreach (var purchase in Purchases)
 				{
-					<article class="purchase-card" @key="purchase.Id">
+					<article class="purchase-card purchase-card-clickable" @key="purchase.Id" @onclick="() => NavigateToDetail(purchase)">
 						<header class="purchase-card-header">
 							<div class="purchase-order-id">
 								<span class="order-icon" aria-hidden="true">▤</span>
@@ -118,6 +119,25 @@
 									}
 								</ul>
 							</div>
+
+							<div class="purchase-card-actions">
+								@if (IsPayableStatus(purchase.Status))
+								{
+									<button class="purchase-retry" type="button"
+											disabled="@IsRetryingPayment"
+											@onclick="() => RetryPaymentAsync(purchase)"
+											@onclick:stopPropagation>
+										@(IsRetryingPayment && RetryingOrderId == purchase.Id ? "Abriendo Mercado Pago..." : "Intentar pago")
+									</button>
+								}
+								<button class="purchase-detail-link" type="button"
+										@onclick="() => NavigateToDetail(purchase)"
+										@onclick:stopPropagation>Ver detalle <span aria-hidden="true">→</span></button>
+							</div>
+							@if (PaymentError is not null && PaymentErrorOrderId == purchase.Id)
+							{
+								<p class="checkout-error" role="alert">@PaymentError</p>
+							}
 						</div>
 					</article>
 				}
@@ -130,6 +150,10 @@
 	private IReadOnlyList<PurchaseHistoryEntry> Purchases { get; set; } = [];
 	private bool IsLoading { get; set; } = true;
 	private string? ErrorMessage { get; set; }
+	private bool IsRetryingPayment { get; set; }
+	private int RetryingOrderId { get; set; }
+	private string? PaymentError { get; set; }
+	private int PaymentErrorOrderId { get; set; }
 
 	protected override Task OnInitializedAsync() => LoadPurchasesAsync();
 
@@ -152,8 +176,47 @@
 		}
 	}
 
+	private void NavigateToDetail(PurchaseHistoryEntry purchase) =>
+		Navigation.NavigateTo($"/account/purchases/{Uri.EscapeDataString(purchase.ExternalReference)}");
+
+	private async Task RetryPaymentAsync(PurchaseHistoryEntry purchase)
+	{
+		if (IsRetryingPayment)
+		{
+			return;
+		}
+
+		IsRetryingPayment = true;
+		RetryingOrderId = purchase.Id;
+		PaymentError = null;
+		PaymentErrorOrderId = purchase.Id;
+
+		try
+		{
+			var checkout = await PaymentsApiClient.RetryCheckoutAsync(purchase.ExternalReference);
+			Navigation.NavigateTo(
+				checkout.CheckoutUrl,
+				forceLoad: checkout.CheckoutUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+		}
+		catch (InvalidOperationException exception)
+		{
+			PaymentError = exception.Message;
+		}
+		catch (HttpRequestException)
+		{
+			PaymentError = "No se pudo retomar el pago. Intentá otra vez.";
+		}
+		finally
+		{
+			IsRetryingPayment = false;
+		}
+	}
+
 	private int CountByStatus(params string[] statuses) =>
 		Purchases.Count(purchase => statuses.Contains(purchase.Status, StringComparer.OrdinalIgnoreCase));
+
+	private static bool IsPayableStatus(string status) =>
+		status.ToLowerInvariant() is "pending" or "in_process";
 
 	private static string GetStatusClass(string status) => status.ToLowerInvariant() switch
 	{

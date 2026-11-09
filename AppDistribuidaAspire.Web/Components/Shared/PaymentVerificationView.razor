@@ -5,9 +5,9 @@
 	@if (IsVerifying)
 	{
 		<div class="payment-state-icon" aria-hidden="true">⌛</div>
-		<p class="payment-eyebrow">MERCADO PAGO</p>
+		<p class="payment-eyebrow">ESTADO DE TU COMPRA</p>
 		<h1>Verificando el pago</h1>
-		<p class="payment-description">Estamos consultando el estado directamente con Mercado Pago.</p>
+		<p class="payment-description">Estamos confirmando el estado de tu compra.</p>
 	}
 	else if (Payment is null)
 	{
@@ -15,7 +15,7 @@
 		<p class="payment-eyebrow">NO PUDIMOS ACTUALIZAR TU COMPRA</p>
 		<h1>No pudimos confirmar el pago</h1>
 		<p class="payment-description">@VerificationMessage</p>
-		@if (!string.IsNullOrWhiteSpace(PaymentId) || !string.IsNullOrWhiteSpace(ExternalReference))
+		@if (CanVerify)
 		{
 			<button class="payment-secondary-button" type="button" @onclick="VerifyPaymentAsync">Volver a consultar</button>
 		}
@@ -26,7 +26,11 @@
 		<p class="payment-eyebrow">ESTADO ACTUAL DE TU COMPRA</p>
 		<h1>@StatusTitle</h1>
 		<p class="payment-description">
-			@if (string.IsNullOrWhiteSpace(Payment.PaymentId))
+			@if (string.Equals(Payment.Status, "approved", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(Payment.PaymentId))
+			{
+				<span>Compra aprobada en modo de prueba. No se realizó ningún cobro real.</span>
+			}
+			else if (string.IsNullOrWhiteSpace(Payment.PaymentId))
 			{
 				<span>La orden está registrada y esperamos la confirmación del pago. El resultado del navegador no se toma como confirmación.</span>
 			}
@@ -42,8 +46,11 @@
 				<dt>Pago</dt>
 				<dd>@Payment.PaymentId</dd>
 			}
-			<dt>Preferencia</dt>
-			<dd>@Payment.PreferenceId</dd>
+			@if (!IsDemoCheckout)
+			{
+				<dt>Preferencia</dt>
+				<dd>@Payment.PreferenceId</dd>
+			}
 			<dt>Importe</dt>
 			<dd>$ @Payment.Amount.ToString("N2") @Payment.Currency</dd>
 			<dt>Estado</dt>
@@ -59,8 +66,7 @@
 				<dd>@Payment.ApprovedAtUtc.Value.ToLocalTime().ToString("g")</dd>
 			}
 		</dl>
-		@if (!string.Equals(Payment.Status, "approved", StringComparison.OrdinalIgnoreCase)
-			&& (!string.IsNullOrWhiteSpace(PaymentId) || !string.IsNullOrWhiteSpace(ExternalReference)))
+		@if (!string.Equals(Payment.Status, "approved", StringComparison.OrdinalIgnoreCase) && CanVerify)
 		{
 			<button class="payment-secondary-button" type="button" @onclick="VerifyPaymentAsync">Actualizar estado</button>
 		}
@@ -71,6 +77,8 @@
 	private VerifiedPayment? Payment { get; set; }
 	private string? VerificationMessage { get; set; }
 	private bool IsVerifying { get; set; }
+	private bool CanVerify => IsValidPaymentId(PaymentId) || !string.IsNullOrWhiteSpace(ExternalReference);
+	private bool IsDemoCheckout => string.Equals(Payment?.PreferenceId, "demo", StringComparison.OrdinalIgnoreCase);
 	private string StateClass => IsVerifying ? "payment-state-checking" : Payment is null ? "payment-state-error" : Payment.Status.ToLowerInvariant() switch
 	{
 		"approved" => "payment-state-approved",
@@ -99,7 +107,7 @@
 		Payment = null;
 		VerificationMessage = null;
 
-		if (string.IsNullOrWhiteSpace(PaymentId) && string.IsNullOrWhiteSpace(ExternalReference))
+		if (!CanVerify)
 		{
 			VerificationMessage = "Mercado Pago no devolvió un identificador de pago ni de orden.";
 			return;
@@ -108,8 +116,8 @@
 		IsVerifying = true;
 		try
 		{
-			Payment = !string.IsNullOrWhiteSpace(PaymentId)
-				? await PaymentsApiClient.VerifyPaymentAsync(PaymentId)
+			Payment = IsValidPaymentId(PaymentId)
+				? await PaymentsApiClient.VerifyPaymentAsync(PaymentId!)
 				: await PaymentsApiClient.GetOrderStatusAsync(ExternalReference!);
 			if (Payment is null)
 			{
@@ -125,6 +133,10 @@
 			IsVerifying = false;
 		}
 	}
+
+	private static bool IsValidPaymentId(string? paymentId) =>
+		long.TryParse(paymentId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var numericId)
+		&& numericId > 0;
 
 	private string StatusTitle => Payment?.Status.ToLowerInvariant() switch
 	{
