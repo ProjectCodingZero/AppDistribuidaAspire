@@ -1,16 +1,17 @@
 @page "/login"
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
+@using AppDistribuidaAspire.Web.Components.Shared
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Authentication.Cookies
 @inject AppDistribuidaAspire.Web.Services.AuthenticationApiClient AuthenticationClient
 @inject IHttpContextAccessor HttpContextAccessor
 @inject NavigationManager Navigation
 
-<PageTitle>Iniciar sesión | MercadoClone</PageTitle>
+<PageTitle>Iniciar sesión | Nexo</PageTitle>
 
 <div class="auth-page">
-	<a class="auth-brand" href="/">Mercado<span>Clone</span></a>
+	<Brand />
 
 	<section class="auth-card" aria-labelledby="login-title">
 		<p class="auth-eyebrow">QUÉ BUENO VERTE</p>
@@ -45,7 +46,7 @@
 		</EditForm>
 
 		<p class="auth-switch">¿Todavía no tenés cuenta? <a href="/register">Crear cuenta</a></p>
-		<a class="auth-back" href="/">← Volver a MercadoClone</a>
+		<a class="auth-back" href="/">← Volver a Nexo</a>
 	</section>
 
 	<p class="auth-demo-note">Sitio de demostración. Las cuentas se almacenan en la base de datos local del proyecto.</p>
@@ -84,7 +85,7 @@
 			new(ClaimTypes.NameIdentifier, result.UserId),
 			new(ClaimTypes.Name, Input.Email),
 			new(ClaimTypes.Email, Input.Email),
-			new("mercadoclone:access_token", result.AccessToken)
+			new("nexo:access_token", result.AccessToken)
 		};
 		var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 		var principal = new ClaimsPrincipal(identity);

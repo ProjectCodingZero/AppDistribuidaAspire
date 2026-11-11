@@ -10,7 +10,8 @@ namespace AppDistribuidaAspire.ApiService.Payments;
 public sealed class MercadoPagoPaymentVerificationService(
     IHttpClientFactory httpClientFactory,
     IOptions<MercadoPagoOptions> options,
-    ThisContext database)
+    ThisContext database,
+    CatalogStockService stockService)
 {
     private readonly MercadoPagoOptions _options = options.Value;
 
@@ -105,10 +106,12 @@ public sealed class MercadoPagoPaymentVerificationService(
             return null;
         }
 
-        var order = await database.PaymentOrders.SingleOrDefaultAsync(
-            candidate => candidate.ExternalReference == payment.ExternalReference &&
-                         (userId == null || candidate.UserId == userId),
-            cancellationToken);
+        var order = await database.PaymentOrders
+            .Include(candidate => candidate.Items)
+            .SingleOrDefaultAsync(
+                candidate => candidate.ExternalReference == payment.ExternalReference &&
+                             (userId == null || candidate.UserId == userId),
+                cancellationToken);
 
         if (order is null ||
             string.IsNullOrWhiteSpace(order.PreferenceId) ||
@@ -129,6 +132,16 @@ public sealed class MercadoPagoPaymentVerificationService(
             order.ApprovedAtUtc = string.Equals(payment.Status, "approved", StringComparison.OrdinalIgnoreCase)
                 ? payment.DateApproved?.UtcDateTime
                 : null;
+            await database.SaveChangesAsync(cancellationToken);
+        }
+
+        // Discount stock exactly once when the payment is approved. Replayed webhooks
+        // and the return-page verification are idempotent thanks to PaymentOrder.StockApplied.
+        if (string.Equals(order.Status, "approved", StringComparison.OrdinalIgnoreCase) &&
+            !order.IsDevelopmentSample &&
+            !await stockService.TryApplyStockAsync(order, cancellationToken))
+        {
+            order.StatusDetail = "El pago se aprobó, pero no había stock suficiente para descontarlo.";
             await database.SaveChangesAsync(cancellationToken);
         }
 

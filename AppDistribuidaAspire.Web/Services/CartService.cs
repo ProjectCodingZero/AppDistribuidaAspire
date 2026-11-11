@@ -115,10 +115,11 @@ public sealed class CartService(IJSRuntime jsRuntime)
 
     public async Task ClearAsync()
     {
-        if (_isInitialized && _lines.Count > 0)
+        var hadLines = _lines.Count > 0;
+        _lines.Clear();
+        await PersistAsync();
+        if (hadLines)
         {
-            _lines.Clear();
-            await PersistAsync();
             Changed?.Invoke();
         }
     }

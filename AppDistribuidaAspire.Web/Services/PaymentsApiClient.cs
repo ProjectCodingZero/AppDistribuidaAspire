@@ -22,23 +22,25 @@ public sealed class PaymentsApiClient(HttpClient httpClient, AuthenticationState
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<CheckoutConfig>(cancellationToken)
-            ?? new CheckoutConfig("MercadoPago", false);
+            ?? new CheckoutConfig("MercadoPago", false, true, null);
     }
 
     public async Task<CheckoutPreferenceResponse> CreateCheckoutAsync(
         IReadOnlyCollection<CartCheckoutItem> items,
+        string returnBaseUrl,
         CancellationToken cancellationToken = default)
     {
         using var request = await CreateAuthorizedRequestAsync(
             HttpMethod.Post,
             "api/payments/checkout-preferences",
             cancellationToken);
-        request.Content = JsonContent.Create(new CreateCheckoutRequest(items));
+        request.Content = JsonContent.Create(new CreateCheckoutRequest(items, returnBaseUrl));
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new HttpRequestException("No se pudo iniciar el pago con Mercado Pago.");
+            throw new InvalidOperationException(
+                await ReadApiErrorMessageAsync(response, "No se pudo iniciar el pago con Mercado Pago."));
         }
 
         return await response.Content.ReadFromJsonAsync<CheckoutPreferenceResponse>(cancellationToken)
@@ -104,12 +106,14 @@ public sealed class PaymentsApiClient(HttpClient httpClient, AuthenticationState
 
     public async Task<CheckoutPreferenceResponse> RetryCheckoutAsync(
         string externalReference,
+        string returnBaseUrl,
         CancellationToken cancellationToken = default)
     {
         using var request = await CreateAuthorizedRequestAsync(
             HttpMethod.Post,
             $"api/payments/orders/{Uri.EscapeDataString(externalReference)}/retry-checkout",
             cancellationToken);
+        request.Content = JsonContent.Create(new RetryCheckoutRequest(returnBaseUrl));
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -150,18 +154,25 @@ public sealed class PaymentsApiClient(HttpClient httpClient, AuthenticationState
     {
         try
         {
-            var payload = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-            if (payload is not null)
+            var payload = await response.Content.ReadFromJsonAsync<ApiErrorPayload>();
+            if (!string.IsNullOrWhiteSpace(payload?.Error))
             {
-                if (payload.TryGetValue("error", out var error) && !string.IsNullOrWhiteSpace(error))
-                {
-                    return error;
-                }
+                return payload.Error;
+            }
 
-                if (payload.TryGetValue("title", out var title) && !string.IsNullOrWhiteSpace(title))
-                {
-                    return title;
-                }
+            if (!string.IsNullOrWhiteSpace(payload?.Detail))
+            {
+                return payload.Detail;
+            }
+
+            if (!string.IsNullOrWhiteSpace(payload?.Title))
+            {
+                return payload.Title;
+            }
+
+            if (!string.IsNullOrWhiteSpace(payload?.Message))
+            {
+                return payload.Message;
             }
         }
         catch (System.Text.Json.JsonException)
@@ -179,7 +190,7 @@ public sealed class PaymentsApiClient(HttpClient httpClient, AuthenticationState
     {
         var request = new HttpRequestMessage(method, uri);
         var authenticationState = await authenticationStateProvider.GetAuthenticationStateAsync();
-        var accessToken = authenticationState.User.FindFirst("mercadoclone:access_token")?.Value;
+        var accessToken = authenticationState.User.FindFirst("nexo:access_token")?.Value;
         if (!string.IsNullOrWhiteSpace(accessToken))
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -188,16 +199,22 @@ public sealed class PaymentsApiClient(HttpClient httpClient, AuthenticationState
         return request;
     }
 
-    private sealed record CreateCheckoutRequest(IReadOnlyCollection<CartCheckoutItem> Items);
+    private sealed record CreateCheckoutRequest(IReadOnlyCollection<CartCheckoutItem> Items, string ReturnBaseUrl);
+
+    private sealed record RetryCheckoutRequest(string ReturnBaseUrl);
+
+    private sealed record ApiErrorPayload(string? Error, string? Detail, string? Title, string? Message);
 }
 
 public sealed record CartCheckoutItem(int ProductId, int Quantity);
 
 public sealed record CheckoutPreferenceResponse(string PreferenceId, string CheckoutUrl);
 
-public sealed record CheckoutConfig(string Mode, bool AutoApprove)
+public sealed record CheckoutConfig(string Mode, bool AutoApprove, bool Ready, string? Warning)
 {
     public bool IsDemo => string.Equals(Mode, "Demo", StringComparison.OrdinalIgnoreCase);
+    public bool IsReady => IsDemo || Ready;
+    public bool HasWarning => !string.IsNullOrWhiteSpace(Warning);
 }
 
 public sealed record VerifiedPayment(

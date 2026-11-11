@@ -1,10 +1,20 @@
 namespace AppDistribuidaAspire.ApiService.Payments;
 
-public sealed record CreateCheckoutRequest(IReadOnlyList<CreateCheckoutItem>? Items);
+public sealed record CreateCheckoutRequest(
+    IReadOnlyList<CreateCheckoutItem>? Items,
+    string? ReturnBaseUrl = null);
+
+public sealed record RetryCheckoutRequest(string? ReturnBaseUrl = null);
 
 public sealed record CreateCheckoutItem(int ProductId, int Quantity);
 
 public sealed record CreateCheckoutResponse(string PreferenceId, string CheckoutUrl);
+
+public sealed record CheckoutConfigResponse(
+    string Mode,
+    bool AutoApprove,
+    bool Ready,
+    string? Warning);
 
 public sealed record CheckoutLine(CatalogProduct Product, int Quantity);
 

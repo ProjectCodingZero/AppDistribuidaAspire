@@ -7,19 +7,11 @@
 @inject PaymentsApiClient PaymentsApiClient
 @inject NavigationManager Navigation
 
-<PageTitle>Detalle del pedido | MercadoClone</PageTitle>
+<PageTitle>@(Purchase is null ? "Detalle del pedido" : $"Pedido #{Purchase.Id}") | Nexo</PageTitle>
 
 <main class="purchase-page">
 	<div class="purchase-shell">
 		<a class="purchase-back" href="/account/purchases">← Volver a mis compras</a>
-		<header class="purchase-header">
-			<div>
-				<p class="purchase-eyebrow">MI CUENTA <span>/</span> MIS COMPRAS</p>
-				<h1>Detalle del pago</h1>
-				<p>Todos los datos del pedido y el estado de su acreditación.</p>
-			</div>
-			<div class="purchase-header-icon" aria-hidden="true">🧾</div>
-		</header>
 
 		@if (IsLoading)
 		{
@@ -41,76 +33,156 @@
 		}
 		else
 		{
-			<PaymentVerificationView ExternalReference="@Purchase.ExternalReference" />
-
-			<section class="purchase-detail-card">
-				<header class="purchase-detail-head">
-					<div class="purchase-detail-order">
-						<span>Número de pedido</span>
-						<h2>#@Purchase.Id</h2>
-					</div>
-					<div class="purchase-detail-meta">
-						<time datetime="@Purchase.CreatedAtUtc.ToString("O")">@Purchase.CreatedAtUtc.ToLocalTime().ToString("g")</time>
+			<header class="purchase-header detail-hero">
+				<div class="detail-hero-copy">
+					<p class="purchase-eyebrow">MI CUENTA <span>/</span> MIS COMPRAS</p>
+					<h1>Pedido <span class="detail-order-number">#@Purchase.Id</span></h1>
+					<div class="detail-hero-meta">
+						<span class="detail-hero-chip">
+							<span aria-hidden="true">🗓</span>
+							<time datetime="@Purchase.CreatedAtUtc.ToString("O")">@Purchase.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy '·' HH:mm")</time>
+						</span>
+						<span class="detail-hero-chip">
+							<span aria-hidden="true">📦</span>
+							@TotalUnits @(TotalUnits == 1 ? "producto" : "productos")
+						</span>
 						<span class="purchase-status @GetStatusClass(Purchase.Status)">
 							<span class="status-dot" aria-hidden="true"></span>@GetStatusLabel(Purchase.Status)
 						</span>
 					</div>
-				</header>
-				<div class="purchase-detail-body">
-					@if (Purchase.IsDevelopmentSample)
-					{
-						<p class="development-sample-note"><span aria-hidden="true">ⓘ</span> Registro de ejemplo del entorno Development</p>
-					}
-					@if (!string.IsNullOrWhiteSpace(Purchase.StatusDetail))
-					{
-						<p class="purchase-status-detail">@Purchase.StatusDetail</p>
-					}
+				</div>
+				<div class="purchase-header-icon" aria-hidden="true">🧾</div>
+			</header>
 
-					<div class="purchase-total-row">
-						<div>
-							<span>Total del pedido</span>
-							@if (Purchase.ApprovedAtUtc is not null)
-							{
-								<small>Aprobado el @Purchase.ApprovedAtUtc.Value.ToLocalTime().ToString("d")</small>
-							}
-						</div>
-						<strong>@Purchase.Currency @Purchase.Amount.ToString("N2")</strong>
-					</div>
+			<div class="detail-grid">
+				<div class="detail-main">
+					<PaymentVerificationView ExternalReference="@Purchase.ExternalReference" />
 
-					<div class="purchase-items">
-						<h4>Productos <span>@Purchase.Items.Sum(item => item.Quantity)</span></h4>
-						<ul>
+					<section class="detail-card">
+						<header class="detail-card-head">
+							<div>
+								<p class="detail-card-eyebrow">COMPRA</p>
+								<h2>Productos del pedido</h2>
+							</div>
+							<span class="detail-count">@TotalUnits</span>
+						</header>
+
+						<ul class="detail-items">
 							@foreach (var item in Purchase.Items)
 							{
 								<li>
-									<span class="purchase-item-icon" aria-hidden="true">□</span>
-									<span class="purchase-item-name">@item.ProductName<small>Cantidad: @item.Quantity</small></span>
-									<strong>@item.UnitPrice.ToString("N2")</strong>
+									<span class="detail-item-thumb" aria-hidden="true">@ItemInitial(item.ProductName)</span>
+									<div class="detail-item-info">
+										<h3>@item.ProductName</h3>
+										<p>@item.Quantity × @Purchase.Currency @item.UnitPrice.ToString("N2")</p>
+									</div>
+									<strong class="detail-item-total">@Purchase.Currency @((item.UnitPrice * item.Quantity).ToString("N2"))</strong>
 								</li>
 							}
 						</ul>
-					</div>
+
+						<footer class="detail-totals">
+							<div class="detail-total-line">
+								<span>Artículos (@TotalUnits)</span>
+								<strong>@Purchase.Currency @ItemsSubtotal.ToString("N2")</strong>
+							</div>
+							<div class="detail-total-line detail-total-grand">
+								<span>Total del pedido</span>
+								<strong>@Purchase.Currency @Purchase.Amount.ToString("N2")</strong>
+							</div>
+						</footer>
+					</section>
+
+					@if (!string.IsNullOrWhiteSpace(Purchase.StatusDetail))
+					{
+						<p class="detail-status-detail"><span aria-hidden="true">ⓘ</span> @Purchase.StatusDetail</p>
+					}
+					@if (Purchase.IsDevelopmentSample)
+					{
+						<p class="detail-dev-note"><span aria-hidden="true">ⓘ</span> Registro de ejemplo del entorno Development</p>
+					}
+				</div>
+
+				<aside class="detail-side">
+					<section class="detail-card">
+						<header class="detail-card-head">
+							<div>
+								<p class="detail-card-eyebrow">RESUMEN</p>
+								<h2>Datos del pago</h2>
+							</div>
+						</header>
+
+						<dl class="detail-facts">
+							<div>
+								<dt>Número de pedido</dt>
+								<dd>#@Purchase.Id</dd>
+							</div>
+							<div>
+								<dt>Fecha</dt>
+								<dd><time datetime="@Purchase.CreatedAtUtc.ToString("O")">@Purchase.CreatedAtUtc.ToLocalTime().ToString("g")</time></dd>
+							</div>
+							@if (Purchase.ApprovedAtUtc is not null)
+							{
+								<div>
+									<dt>Aprobado</dt>
+									<dd><time datetime="@Purchase.ApprovedAtUtc.Value.ToString("O")">@Purchase.ApprovedAtUtc.Value.ToLocalTime().ToString("g")</time></dd>
+								</div>
+							}
+							<div>
+								<dt>Estado</dt>
+								<dd>
+									<span class="purchase-status @GetStatusClass(Purchase.Status)">
+										<span class="status-dot" aria-hidden="true"></span>@GetStatusLabel(Purchase.Status)
+									</span>
+								</dd>
+							</div>
+							<div>
+								<dt>Total</dt>
+								<dd class="detail-facts-total">@Purchase.Currency @Purchase.Amount.ToString("N2")</dd>
+							</div>
+							<div class="detail-facts-reference">
+								<dt>Referencia</dt>
+								<dd><code>@Purchase.ExternalReference</code></dd>
+							</div>
+						</dl>
+					</section>
 
 					@if (IsPayableStatus(Purchase.Status))
 					{
-						<div class="purchase-detail-actions">
-							<p class="purchase-countdown" role="timer">
-								<span aria-hidden="true">⏱</span> Tiempo restante para pagar:
+						<section class="detail-action-card">
+							<p class="detail-action-eyebrow">PAGO PENDIENTE</p>
+							<p class="detail-countdown" role="timer">
+								<span aria-hidden="true">⏱</span> Tiempo restante:
 								<strong>@(CountdownText ?? "—")</strong>
 							</p>
-							<button class="purchase-retry purchase-retry-primary" type="button"
+							<button class="detail-primary-button" type="button"
 									disabled="@IsRetryingPayment"
 									@onclick="RetryPaymentAsync">
 								@(IsRetryingPayment ? "Abriendo Mercado Pago..." : "Intentar pago")
+								@if (!IsRetryingPayment)
+								{
+									<span aria-hidden="true">→</span>
+								}
 							</button>
 							@if (PaymentError is not null)
 							{
 								<p class="checkout-error" role="alert">@PaymentError</p>
 							}
-						</div>
+							<p class="detail-action-hint">Te vamos a redirigir a Mercado Pago para completar el pago.</p>
+						</section>
 					}
-				</div>
-			</section>
+
+					<section class="detail-help">
+						<span class="detail-help-icon" aria-hidden="true">🔒</span>
+						<div>
+							<h3>Compra protegida</h3>
+							<p>El estado del pago se confirma directamente con Mercado Pago.</p>
+						</div>
+					</section>
+
+					<a class="detail-secondary-link" href="/account/purchases">← Volver a mis compras</a>
+				</aside>
+			</div>
 		}
 	</div>
 </main>
@@ -127,6 +199,9 @@
 	private string? CountdownText { get; set; }
 	private System.Threading.Timer? CountdownTimer { get; set; }
 	private bool ReloadRequested { get; set; }
+
+	private int TotalUnits => Purchase?.Items.Sum(item => item.Quantity) ?? 0;
+	private decimal ItemsSubtotal => Purchase?.Items.Sum(item => item.UnitPrice * item.Quantity) ?? 0m;
 
 	[Parameter]
 	public string? ExternalReference { get; set; }
@@ -216,7 +291,7 @@
 
 		try
 		{
-			var checkout = await PaymentsApiClient.RetryCheckoutAsync(Purchase.ExternalReference);
+			var checkout = await PaymentsApiClient.RetryCheckoutAsync(Purchase.ExternalReference, Navigation.BaseUri);
 			Navigation.NavigateTo(
 				checkout.CheckoutUrl,
 				forceLoad: checkout.CheckoutUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase));
@@ -234,6 +309,12 @@
 			IsRetryingPayment = false;
 			StateHasChanged();
 		}
+	}
+
+	private static string ItemInitial(string productName)
+	{
+		var trimmed = productName?.Trim();
+		return string.IsNullOrEmpty(trimmed) ? "•" : trimmed[..1].ToUpperInvariant();
 	}
 
 	private static bool IsPayableStatus(string status) =>

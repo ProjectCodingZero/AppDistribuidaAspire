@@ -1,12 +1,13 @@
 @page "/register"
 @using System.ComponentModel.DataAnnotations
+@using AppDistribuidaAspire.Web.Components.Shared
 @inject AppDistribuidaAspire.Web.Services.AuthenticationApiClient AuthenticationClient
 @inject NavigationManager Navigation
 
-<PageTitle>Crear cuenta | MercadoClone</PageTitle>
+<PageTitle>Crear cuenta | Nexo</PageTitle>
 
 <div class="auth-page">
-	<a class="auth-brand" href="/">Mercado<span>Clone</span></a>
+	<Brand />
 
 	<section class="auth-card" aria-labelledby="register-title">
 		<p class="auth-eyebrow">EMPEZÁ A COMPRAR</p>
@@ -43,7 +44,7 @@
 		</EditForm>
 
 		<p class="auth-switch">¿Ya tenés cuenta? <a href="/login">Iniciar sesión</a></p>
-		<a class="auth-back" href="/">← Volver a MercadoClone</a>
+		<a class="auth-back" href="/">← Volver a Nexo</a>
 	</section>
 
 	<p class="auth-demo-note">Sitio de demostración. Las cuentas se almacenan en la base de datos local del proyecto.</p>

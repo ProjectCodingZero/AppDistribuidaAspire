@@ -2,24 +2,37 @@
 
 <article class="product-card">
 	<div class="product-image-wrap">
+		<span class="product-chip">@Product.Category</span>
+		@if (Product.Stock is > 0 and <= 5)
+		{
+			<span class="product-low-stock">Últimas @Product.Stock</span>
+		}
 		<img class="product-image"
 			 src="@Product.ImageUrl"
 			 alt="@Product.Name"
 			 loading="lazy" />
+		<span class="product-rating" aria-label="Valoración 4.8 de 5">
+			<span aria-hidden="true">★</span> 4.8
+		</span>
 	</div>
 
 	<div class="product-info">
-		<p class="product-name">@Product.Name</p>
-		<p class="product-category">@Product.Category · @Product.Brand</p>
+		<p class="product-brand">@Product.Brand</p>
+		<h3 class="product-name">@Product.Name</h3>
 		<p class="product-description">@Product.Description</p>
-		<p class="product-price">$ @Product.Price.ToString("N0")</p>
-		<p class="product-stock">@(Product.Stock > 0 ? $"Stock: {Product.Stock}" : "Sin stock")</p>
+		<div class="product-meta">
+			<p class="product-price"><small>$</small>@Product.Price.ToString("N0")</p>
+			<span class="product-stock">@(Product.Stock > 0 ? $"{Product.Stock:N0} disponibles" : "Sin stock")</span>
+		</div>
 
 		<button class="add-to-cart-button"
 				type="button"
 				disabled="@(Product.Stock == 0 || !CartReady)"
 				@onclick="() => OnAddToCart.InvokeAsync(Product)">
-			@(CartReady ? "Agregar al carrito" : "Cargando carrito...")
+			<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+				<path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+			</svg>
+			<span>@(CartReady ? "Agregar al carrito" : "Cargando carrito...")</span>
 		</button>
 	</div>
 </article>

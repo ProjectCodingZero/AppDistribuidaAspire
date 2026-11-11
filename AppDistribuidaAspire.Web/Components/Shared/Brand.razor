@@ -1,0 +1,16 @@
+@namespace AppDistribuidaAspire.Web.Components.Shared
+
+<a class="brand @Class" href="/" aria-label="Nexo, ir al inicio">
+	<span class="brand-mark" aria-hidden="true">
+		<svg viewBox="0 0 40 40" focusable="false">
+			<rect width="40" height="40" rx="12" fill="currentColor"></rect>
+			<path d="M12 28V12l16 16V12" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"></path>
+		</svg>
+	</span>
+	<span class="brand-word">nexo<span class="brand-dot">.</span></span>
+</a>
+
+@code {
+	[Parameter]
+	public string? Class { get; set; }
+}

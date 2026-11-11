@@ -5,7 +5,7 @@
 @inject PaymentsApiClient PaymentsApiClient
 @inject NavigationManager Navigation
 
-<PageTitle>Mis compras | MercadoClone</PageTitle>
+<PageTitle>Mis compras | Nexo</PageTitle>
 
 <main class="purchase-page">
 	<div class="purchase-shell">
@@ -193,7 +193,7 @@
 
 		try
 		{
-			var checkout = await PaymentsApiClient.RetryCheckoutAsync(purchase.ExternalReference);
+			var checkout = await PaymentsApiClient.RetryCheckoutAsync(purchase.ExternalReference, Navigation.BaseUri);
 			Navigation.NavigateTo(
 				checkout.CheckoutUrl,
 				forceLoad: checkout.CheckoutUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase));

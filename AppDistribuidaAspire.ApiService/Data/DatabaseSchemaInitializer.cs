@@ -95,6 +95,11 @@ public static class DatabaseSchemaInitializer
                 "UnitPrice" TEXT NOT NULL,
                 CONSTRAINT "FK_PaymentOrderItems_PaymentOrders_PaymentOrderId" FOREIGN KEY ("PaymentOrderId") REFERENCES "PaymentOrders" ("Id") ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS "ProductStocks" (
+                "ProductId" INTEGER NOT NULL CONSTRAINT "PK_ProductStocks" PRIMARY KEY,
+                "Available" INTEGER NOT NULL,
+                "UpdatedAtUtc" TEXT NOT NULL
+            );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_PaymentOrders_ExternalReference" ON "PaymentOrders" ("ExternalReference");
             CREATE UNIQUE INDEX IF NOT EXISTS "RoleNameIndex" ON "AspNetRoles" ("NormalizedName") WHERE "NormalizedName" IS NOT NULL;
             CREATE INDEX IF NOT EXISTS "EmailIndex" ON "AspNetUsers" ("NormalizedEmail");
@@ -111,8 +116,14 @@ public static class DatabaseSchemaInitializer
         await EnsureColumnAsync(database, "UserId", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(database, "IsDevelopmentSample", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
         await EnsureColumnAsync(database, "CheckoutUrl", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(database, "StockApplied", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
         await database.Database.ExecuteSqlRawAsync(
             "CREATE INDEX IF NOT EXISTS \"IX_PaymentOrders_UserId\" ON \"PaymentOrders\" (\"UserId\")",
+            cancellationToken);
+
+        // Orders approved before stock tracking existed must not discount stock retroactively.
+        await database.Database.ExecuteSqlRawAsync(
+            "UPDATE \"PaymentOrders\" SET \"StockApplied\" = 1 WHERE \"Status\" = 'approved' AND \"StockApplied\" = 0",
             cancellationToken);
     }
 

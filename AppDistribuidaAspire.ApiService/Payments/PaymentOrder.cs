@@ -15,5 +15,6 @@ public sealed class PaymentOrder
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? ApprovedAtUtc { get; set; }
     public bool IsDevelopmentSample { get; set; }
+    public bool StockApplied { get; set; }
     public List<PaymentOrderItem> Items { get; set; } = [];
 }

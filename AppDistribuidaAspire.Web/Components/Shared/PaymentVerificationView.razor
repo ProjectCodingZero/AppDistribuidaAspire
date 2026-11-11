@@ -1,5 +1,6 @@
 @using AppDistribuidaAspire.Web.Services
 @inject PaymentsApiClient PaymentsApiClient
+@inject CartService Cart
 
 <section class="payment-card @StateClass" aria-live="polite" aria-busy="@IsVerifying">
 	@if (IsVerifying)
@@ -77,6 +78,8 @@
 	private VerifiedPayment? Payment { get; set; }
 	private string? VerificationMessage { get; set; }
 	private bool IsVerifying { get; set; }
+	private bool _cartCleared;
+	private bool _pendingCartClear;
 	private bool CanVerify => IsValidPaymentId(PaymentId) || !string.IsNullOrWhiteSpace(ExternalReference);
 	private bool IsDemoCheckout => string.Equals(Payment?.PreferenceId, "demo", StringComparison.OrdinalIgnoreCase);
 	private string StateClass => IsVerifying ? "payment-state-checking" : Payment is null ? "payment-state-error" : Payment.Status.ToLowerInvariant() switch
@@ -102,6 +105,21 @@
 
 	protected override Task OnParametersSetAsync() => VerifyPaymentAsync();
 
+	// JS interop (and therefore the cart storage) is only available once the
+	// component is interactive. During prerendering OnAfterRenderAsync never runs,
+	// so the cart is cleared here instead of inside OnParametersSetAsync.
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!_pendingCartClear)
+		{
+			return;
+		}
+
+		_pendingCartClear = false;
+		_cartCleared = true;
+		await Cart.ClearAsync();
+	}
+
 	private async Task VerifyPaymentAsync()
 	{
 		Payment = null;
@@ -122,6 +140,10 @@
 			if (Payment is null)
 			{
 				VerificationMessage = "El pago no coincide con una compra creada por esta tienda.";
+			}
+			else if (string.Equals(Payment.Status, "approved", StringComparison.OrdinalIgnoreCase) && !_cartCleared)
+			{
+				_pendingCartClear = true;
 			}
 		}
 		catch (HttpRequestException)

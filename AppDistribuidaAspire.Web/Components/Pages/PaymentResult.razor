@@ -2,14 +2,11 @@
 @rendermode InteractiveServer
 @using AppDistribuidaAspire.Web.Components.Shared
 
-<PageTitle>Resultado del pago | MercadoClone</PageTitle>
+<PageTitle>Resultado del pago | Nexo</PageTitle>
 
 <div class="payment-result-page">
 	<div class="payment-result-shell">
-		<a class="payment-brand" href="/" aria-label="MercadoClone, volver al inicio">
-			<span class="brand-mark" aria-hidden="true">🤝</span>
-			<span>Mercado<span class="brand-light">Clone</span></span>
-		</a>
+		<Brand />
 		<p class="payment-return-note">Actualización segura de tu compra</p>
 
 		<PaymentVerificationView PaymentId="@EffectivePaymentId" ExternalReference="@ExternalReference" />

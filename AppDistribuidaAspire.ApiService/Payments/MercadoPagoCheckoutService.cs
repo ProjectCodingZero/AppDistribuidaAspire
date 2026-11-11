@@ -1,6 +1,7 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Net;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 
@@ -9,42 +10,113 @@ namespace AppDistribuidaAspire.ApiService.Payments;
 public sealed class MercadoPagoCheckoutService(
     IHttpClientFactory httpClientFactory,
     IOptions<MercadoPagoOptions> options,
-    IHostEnvironment environment)
+    IHostEnvironment environment,
+    ILogger<MercadoPagoCheckoutService> logger)
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly MercadoPagoOptions _options = options.Value;
+
+    /// <summary>
+    /// Returns a human readable warning for the current configuration, or null when
+    /// everything looks correct. A legacy TEST- token produces a warning but is still
+    /// allowed to be used (see <see cref="CanAttemptCheckout"/>).
+    /// </summary>
+    public string? GetConfigurationWarning()
+    {
+        if (string.IsNullOrWhiteSpace(_options.AccessToken))
+        {
+            return "Falta configurar MercadoPago:AccessToken. Pegá un AccessToken de prueba (APP_USR-...) en appsettings.Development.json.";
+        }
+
+        // Mercado Pago discontinued the legacy TEST- credentials. We still allow
+        // trying them, but warn that the provider will probably reject them.
+        if (IsLegacyTestToken())
+        {
+            return "Estás usando un AccessToken TEST-..., discontinuado por Mercado Pago. El checkout se intentará igual, pero es probable que Mercado Pago lo rechace. Si falla, generá un AccessToken de prueba APP_USR-... en el panel de desarrolladores.";
+        }
+
+        if (!_options.AccessToken.StartsWith("APP_USR-", StringComparison.OrdinalIgnoreCase))
+        {
+            return "El AccessToken no tiene el formato esperado (APP_USR-...). Revisá las credenciales de Mercado Pago.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.NotificationUrl) &&
+            (!Uri.TryCreate(_options.NotificationUrl, UriKind.Absolute, out var notificationUrl) ||
+             !IsAllowedNotificationUrl(notificationUrl)))
+        {
+            return "MercadoPago:NotificationUrl debe ser una URL HTTPS pública y accesible por Mercado Pago.";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// True when the checkout can be attempted. Legacy TEST- tokens are allowed on
+    /// purpose: they are surfaced as a warning instead of blocking the purchase flow.
+    /// </summary>
+    public bool CanAttemptCheckout()
+    {
+        if (string.IsNullOrWhiteSpace(_options.AccessToken))
+        {
+            return false;
+        }
+
+        if (IsLegacyTestToken())
+        {
+            return true;
+        }
+
+        if (!_options.AccessToken.StartsWith("APP_USR-", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.NotificationUrl) &&
+            (!Uri.TryCreate(_options.NotificationUrl, UriKind.Absolute, out var notificationUrl) ||
+             !IsAllowedNotificationUrl(notificationUrl)))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsLegacyTestToken() =>
+        _options.AccessToken?.StartsWith("TEST-", StringComparison.Ordinal) == true;
 
     public async Task<CreateCheckoutResponse> CreatePreferenceAsync(
         IReadOnlyList<CheckoutLine> items,
         string externalReference,
+        string? returnBaseUrl,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.AccessToken))
         {
-            throw new InvalidOperationException("Mercado Pago AccessToken is not configured.");
+            throw new InvalidOperationException(
+                "Mercado Pago no está configurado. Agregá MercadoPago:AccessToken en appsettings.Development.json.");
         }
 
-        // Mercado Pago now issues test credentials with the APP_USR- prefix too (the test seller
-        // account is created automatically), so the prefix alone no longer tells test from
-        // production. The only combination we can safely reject is a TEST- token in production,
-        // because it can never process real payments.
-        if (!_options.UseSandbox && _options.AccessToken.StartsWith("TEST-", StringComparison.Ordinal))
+        if (IsLegacyTestToken())
         {
-            throw new InvalidOperationException(
-                "Mercado Pago production requires a production access token (APP_USR-). TEST- tokens only work in sandbox mode.");
+            logger.LogWarning(
+                "Using a legacy Mercado Pago TEST- access token. The checkout will be attempted, but Mercado Pago may reject it; generate an APP_USR- test token in the developer panel.");
         }
 
-        if (!Uri.TryCreate(_options.SuccessUrl, UriKind.Absolute, out var successUrl) ||
-            !Uri.TryCreate(_options.FailureUrl, UriKind.Absolute, out var failureUrl) ||
-            !Uri.TryCreate(_options.PendingUrl, UriKind.Absolute, out var pendingUrl) ||
-            !IsAllowedReturnUrl(successUrl) ||
-            !IsAllowedReturnUrl(failureUrl) ||
-            !IsAllowedReturnUrl(pendingUrl) ||
-            (!string.IsNullOrWhiteSpace(_options.NotificationUrl) &&
-             (!Uri.TryCreate(_options.NotificationUrl, UriKind.Absolute, out var notificationUrl) ||
-              !IsAllowedNotificationUrl(notificationUrl))))
+        if (!TryBuildReturnUrls(returnBaseUrl, out var returnUrls, out var returnUrlsError))
+        {
+            throw new InvalidOperationException(returnUrlsError);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.NotificationUrl) &&
+            (!Uri.TryCreate(_options.NotificationUrl, UriKind.Absolute, out var notificationUrl) ||
+             !IsAllowedNotificationUrl(notificationUrl)))
         {
             throw new InvalidOperationException(
-                "Mercado Pago return URLs must use HTTPS. The notification URL must use a public HTTPS host reachable by Mercado Pago.");
+                "MercadoPago:NotificationUrl debe ser una URL HTTPS pública y accesible por Mercado Pago.");
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "checkout/preferences");
@@ -55,40 +127,125 @@ public sealed class MercadoPagoCheckoutService(
             {
                 Id = line.Product.Id.ToString(),
                 Title = line.Product.Name,
+                Description = line.Product.Description,
                 Quantity = line.Quantity,
                 CurrencyId = "ARS",
                 UnitPrice = line.Product.Price
             }).ToArray(),
             BackUrls = new MercadoPagoBackUrls
             {
-                Success = successUrl.ToString(),
-                Failure = failureUrl.ToString(),
-                Pending = pendingUrl.ToString()
+                Success = returnUrls.Success,
+                Failure = returnUrls.Failure,
+                Pending = returnUrls.Pending
             },
-            AutoReturn = "approved",
+            // auto_return only works with publicly reachable HTTPS URLs. During
+            // local development we let the buyer use the "Volver al sitio" button.
+            AutoReturn = returnUrls.IsPublicSuccess ? "approved" : null,
             NotificationUrl = string.IsNullOrWhiteSpace(_options.NotificationUrl)
                 ? null
                 : _options.NotificationUrl,
             ExternalReference = externalReference
-        });
+        }, options: JsonOptions);
 
         var client = httpClientFactory.CreateClient(nameof(MercadoPagoCheckoutService));
         using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        var preference = await response.Content.ReadFromJsonAsync<MercadoPagoPreferenceResponse>(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var providerError = MercadoPagoErrorPayload.Parse(responseBody);
+            logger.LogWarning(
+                "Mercado Pago rejected preference {ExternalReference} with {StatusCode} ({ProviderCode}): {ProviderMessage}",
+                externalReference,
+                (int)response.StatusCode,
+                providerError?.Code ?? providerError?.Error,
+                providerError?.Message);
 
-        // With test credentials Mercado Pago already routes init_point to the sandbox.
-        // sandbox_init_point is deprecated and can make the checkout fail with
-        // "Una de las partes con la que intentás hacer el pago es de prueba".
+            throw BuildProviderException(response.StatusCode, providerError);
+        }
+
+        var preference = JsonSerializer.Deserialize<MercadoPagoPreferenceResponse>(responseBody, JsonOptions);
+
+        // init_point is the recommended URL. sandbox_init_point is kept only as a
+        // fallback for older accounts that still return it.
         var checkoutUrl = preference?.InitPoint;
+        if (string.IsNullOrWhiteSpace(checkoutUrl))
+        {
+            checkoutUrl = preference?.SandboxInitPoint;
+        }
 
         if (string.IsNullOrWhiteSpace(preference?.Id) || string.IsNullOrWhiteSpace(checkoutUrl))
         {
-            throw new HttpRequestException("Mercado Pago returned an incomplete checkout preference.");
+            throw new MercadoPagoException(
+                "Mercado Pago devolvió una preferencia de pago incompleta. Intentá nuevamente en unos minutos.");
         }
 
         return new CreateCheckoutResponse(preference.Id, checkoutUrl);
+    }
+
+    private bool TryBuildReturnUrls(
+        string? returnBaseUrl,
+        out MercadoPagoReturnUrls returnUrls,
+        out string? error)
+    {
+        returnUrls = default!;
+        error = null;
+
+        var baseUrl = returnBaseUrl;
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            if (!Uri.TryCreate(_options.SuccessUrl, UriKind.Absolute, out var configuredSuccess))
+            {
+                error = "MercadoPago:SuccessUrl debe ser una URL absoluta HTTPS.";
+                return false;
+            }
+
+            baseUrl = configuredSuccess.GetLeftPart(UriPartial.Authority);
+        }
+
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) ||
+            !IsAllowedReturnUrl(baseUri))
+        {
+            error = "La URL de retorno de la tienda debe ser HTTPS. Iniciá la app con el perfil HTTPS (por ejemplo, el AppHost de Aspire).";
+            return false;
+        }
+
+        var origin = baseUri.GetLeftPart(UriPartial.Authority);
+        returnUrls = new MercadoPagoReturnUrls(
+            $"{origin}/payment/success",
+            $"{origin}/payment/failure",
+            $"{origin}/payment/pending",
+            IsPublicHttps(baseUri));
+        return true;
+    }
+
+    private static MercadoPagoException BuildProviderException(
+        HttpStatusCode statusCode,
+        MercadoPagoErrorPayload? providerError)
+    {
+        var providerCode = providerError?.Code ?? providerError?.Error;
+        var providerMessage = providerError?.Message;
+        var cause = providerError?.Cause?.FirstOrDefault()?.Description;
+
+        var message = statusCode switch
+        {
+            HttpStatusCode.Unauthorized =>
+                "Mercado Pago rechazó las credenciales (401). Revisá que el AccessToken sea válido y corresponda al entorno de prueba.",
+            HttpStatusCode.Forbidden =>
+                "Mercado Pago bloqueó el acceso con este AccessToken (403). La cuenta o la credencial pueden estar revocadas; generá un AccessToken nuevo en el panel de desarrolladores.",
+            HttpStatusCode.BadRequest =>
+                $"Mercado Pago rechazó la preferencia de pago: {cause ?? providerMessage ?? "revisá los datos del carrito"}.",
+            HttpStatusCode.NotFound =>
+                "Mercado Pago no encontró el recurso solicitado. Verificá la configuración de la cuenta.",
+            HttpStatusCode.TooManyRequests =>
+                "Mercado Pago recibió demasiadas solicitudes. Esperá unos segundos y volvé a intentar.",
+            _ when (int)statusCode >= 500 =>
+                "Mercado Pago no está disponible en este momento. Intentá de nuevo en unos minutos.",
+            _ =>
+                $"Mercado Pago respondió con un error ({(int)statusCode}){(providerCode is null ? string.Empty : $" {providerCode}")}."
+        };
+
+        return new MercadoPagoException(message, statusCode, providerCode, providerMessage);
     }
 
     private bool IsAllowedReturnUrl(Uri uri)
@@ -104,6 +261,14 @@ public sealed class MercadoPagoCheckoutService(
             return true;
         }
 
+        var host = uri.Host;
+        return !string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) &&
+               !host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) &&
+               (!IPAddress.TryParse(host, out var address) || !IPAddress.IsLoopback(address));
+    }
+
+    private static bool IsPublicHttps(Uri uri)
+    {
         var host = uri.Host;
         return !string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) &&
                !host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase) &&
@@ -131,6 +296,12 @@ public sealed class MercadoPagoCheckoutService(
         return !IPAddress.TryParse(host, out var address) || !IPAddress.IsLoopback(address);
     }
 
+    private sealed record MercadoPagoReturnUrls(
+        string Success,
+        string Failure,
+        string Pending,
+        bool IsPublicSuccess);
+
     private sealed class MercadoPagoPreferenceRequest
     {
         [JsonPropertyName("items")]
@@ -156,6 +327,9 @@ public sealed class MercadoPagoCheckoutService(
 
         [JsonPropertyName("title")]
         public required string Title { get; init; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; init; }
 
         [JsonPropertyName("quantity")]
         public int Quantity { get; init; }
@@ -186,5 +360,52 @@ public sealed class MercadoPagoCheckoutService(
 
         [JsonPropertyName("init_point")]
         public string? InitPoint { get; init; }
+
+        [JsonPropertyName("sandbox_init_point")]
+        public string? SandboxInitPoint { get; init; }
+    }
+
+    private sealed class MercadoPagoErrorPayload
+    {
+        [JsonPropertyName("message")]
+        public string? Message { get; init; }
+
+        [JsonPropertyName("error")]
+        public string? Error { get; init; }
+
+        [JsonPropertyName("code")]
+        public string? Code { get; init; }
+
+        [JsonPropertyName("status")]
+        public int? Status { get; init; }
+
+        [JsonPropertyName("cause")]
+        public IReadOnlyList<MercadoPagoErrorCause>? Cause { get; init; }
+
+        public static MercadoPagoErrorPayload? Parse(string? responseBody)
+        {
+            if (string.IsNullOrWhiteSpace(responseBody))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<MercadoPagoErrorPayload>(responseBody, JsonOptions);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+    }
+
+    private sealed class MercadoPagoErrorCause
+    {
+        [JsonPropertyName("code")]
+        public string? Code { get; init; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; init; }
     }
 }

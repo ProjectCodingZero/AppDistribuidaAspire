@@ -1,92 +1,562 @@
 [
   {
     "id": 1,
-    "name": "Auriculares inalámbricos SoundBeat",
-    "category": "Tecnología",
-    "brand": "SoundBeat",
-    "description": "Auriculares Bluetooth con cancelación de ruido y hasta 30 horas de batería.",
-    "price": 4500,
-    "stock": 18,
+    "name": "Auriculares inalámbricos Pulse Air",
+    "category": "Audio",
+    "brand": "Pulse",
+    "description": "Auriculares Bluetooth con cancelación activa de ruido, estuche de carga y hasta 30 horas de reproducción.",
+    "price": 8999,
+    "stock": 640,
     "imageUrl": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=85"
   },
   {
     "id": 2,
-    "name": "Reloj inteligente Active",
-    "category": "Tecnología",
-    "brand": "Active",
-    "description": "Monitoreo de actividad, ritmo cardíaco y notificaciones desde tu teléfono.",
-    "price": 6500,
-    "stock": 12,
-    "imageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=900&q=85"
+    "name": "Parlante portátil Boom Mini",
+    "category": "Audio",
+    "brand": "Boom",
+    "description": "Parlante compacto resistente al agua, con sonido envolvente y 12 horas de autonomía.",
+    "price": 5499,
+    "stock": 820,
+    "imageUrl": "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=900&q=85"
   },
   {
     "id": 3,
-    "name": "Lámpara de mesa Nórdica",
-    "category": "Hogar",
-    "brand": "Casa Clara",
-    "description": "Lámpara de diseño minimalista con luz cálida para escritorio o mesa de luz.",
-    "price": 2500,
-    "stock": 24,
-    "imageUrl": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=85"
+    "name": "Reloj inteligente Orbit Fit",
+    "category": "Tecnología",
+    "brand": "Orbit",
+    "description": "Monitoreo de actividad, ritmo cardíaco, oxígeno en sangre y notificaciones desde tu teléfono.",
+    "price": 12499,
+    "stock": 460,
+    "imageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=900&q=85"
   },
   {
     "id": 4,
-    "name": "Mochila urbana Explorer",
-    "category": "Moda",
-    "brand": "Explorer",
-    "description": "Mochila resistente con compartimento acolchado para notebook y bolsillos laterales.",
-    "price": 3000,
-    "stock": 15,
-    "imageUrl": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=85"
+    "name": "Notebook liviana Nova 14",
+    "category": "Tecnología",
+    "brand": "Nova",
+    "description": "Pantalla de 14 pulgadas, 16 GB de RAM y SSD de 512 GB para trabajar y estudiar sin límites.",
+    "price": 18999,
+    "stock": 180,
+    "imageUrl": "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=900&q=85"
   },
   {
     "id": 5,
-    "name": "Zapatillas deportivas Run",
-    "category": "Deportes",
-    "brand": "Run",
-    "description": "Calzado liviano con suela flexible para entrenamiento y uso diario.",
-    "price": 3500,
-    "stock": 20,
-    "imageUrl": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=85"
-  },
-  {
-    "id": 6,
-    "name": "Cámara instantánea Snap",
+    "name": "Cámara instantánea Flash Snap",
     "category": "Tecnología",
     "brand": "Snap",
-    "description": "Cámara instantánea compacta para imprimir y compartir tus recuerdos.",
-    "price": 8000,
-    "stock": 7,
+    "description": "Cámara compacta que imprime tus recuerdos al instante, con flash automático y diseño retro.",
+    "price": 9999,
+    "stock": 310,
     "imageUrl": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=85"
   },
   {
+    "id": 6,
+    "name": "Teclado mecánico Compact K7",
+    "category": "Tecnología",
+    "brand": "K7",
+    "description": "Teclado mecánico inalámbrico de formato compacto, switches suaves y retroiluminación ajustable.",
+    "price": 7499,
+    "stock": 520,
+    "imageUrl": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=900&q=85"
+  },
+  {
     "id": 7,
-    "name": "Sillón de lectura Nube",
+    "name": "Lámpara de mesa Nórdica",
     "category": "Hogar",
     "brand": "Casa Clara",
-    "description": "Sillón cómodo de líneas modernas, ideal para crear un rincón de lectura.",
-    "price": 1000,
-    "stock": 4,
-    "imageUrl": "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=900&q=85"
+    "description": "Lámpara de diseño minimalista con luz cálida para escritorio, mesa de luz o rincón de lectura.",
+    "price": 3299,
+    "stock": 950,
+    "imageUrl": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=85"
   },
   {
     "id": 8,
-    "name": "Anteojos de sol Urban",
-    "category": "Moda",
-    "brand": "Urban",
-    "description": "Anteojos livianos con protección UV para acompañarte todos los días.",
-    "price": 700,
-    "stock": 30,
-    "imageUrl": "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=900&q=85"
+    "name": "Sillón de lectura Nube",
+    "category": "Hogar",
+    "brand": "Casa Clara",
+    "description": "Sillón cómodo de líneas modernas y tapizado suave, ideal para crear un rincón de lectura.",
+    "price": 15999,
+    "stock": 120,
+    "imageUrl": "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=900&q=85"
   },
   {
     "id": 9,
+    "name": "Set de tazas de cerámica Alba",
+    "category": "Hogar",
+    "brand": "Alba",
+    "description": "Cuatro tazas de cerámica esmaltada con acabado artesanal, aptas para lavavajillas y microondas.",
+    "price": 2199,
+    "stock": 1400,
+    "imageUrl": "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 10,
+    "name": "Difusor de aromas Bosque",
+    "category": "Hogar",
+    "brand": "Bosque",
+    "description": "Difusor ultrasónico con luz ambiental y apagado automático para perfumar ambientes durante horas.",
+    "price": 2899,
+    "stock": 760,
+    "imageUrl": "https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 11,
+    "name": "Mochila urbana Explorer",
+    "category": "Moda",
+    "brand": "Explorer",
+    "description": "Mochila resistente con compartimento acolchado para notebook, bolsillos laterales y cierre impermeable.",
+    "price": 4999,
+    "stock": 680,
+    "imageUrl": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 12,
+    "name": "Anteojos de sol Urban",
+    "category": "Moda",
+    "brand": "Urban",
+    "description": "Anteojos livianos con protección UV400 y marco de acetato, para acompañarte todos los días.",
+    "price": 1899,
+    "stock": 1100,
+    "imageUrl": "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 13,
+    "name": "Zapatillas deportivas Run",
+    "category": "Deportes",
+    "brand": "Run",
+    "description": "Calzado liviano con suela flexible y amortiguación responsive para entrenamiento y uso diario.",
+    "price": 6999,
+    "stock": 540,
+    "imageUrl": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 14,
     "name": "Botella térmica Trail",
     "category": "Deportes",
     "brand": "Trail",
-    "description": "Botella reutilizable de acero inoxidable con aislamiento térmico.",
-    "price": 500,
-    "stock": 35,
+    "description": "Botella reutilizable de acero inoxidable con aislamiento térmico y tapa hermética.",
+    "price": 1599,
+    "stock": 1600,
     "imageUrl": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 15,
+    "name": "Crema hidratante Hydra",
+    "category": "Belleza",
+    "brand": "Hydra",
+    "description": "Crema facial de rápida absorción con ácido hialurónico para hidratación profunda durante 24 horas.",
+    "price": 2499,
+    "stock": 1250,
+    "imageUrl": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 16,
+    "name": "Set de brochas Studio",
+    "category": "Belleza",
+    "brand": "Studio",
+    "description": "Doce brochas profesionales de cerdas sintéticas con estuche de viaje, para maquillaje impecable.",
+    "price": 3499,
+    "stock": 870,
+    "imageUrl": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 17,
+    "name": "Tocadiscos portátil Retro Spin",
+    "category": "Audio",
+    "brand": "Retro",
+    "description": "Tocadiscos compacto con parlantes integrados, conexión Bluetooth y estuche de transporte.",
+    "price": 11999,
+    "stock": 240,
+    "imageUrl": "https://images.unsplash.com/photo-1461360228754-6e81c478b882?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 18,
+    "name": "Micrófono de condensador Studio One",
+    "category": "Audio",
+    "brand": "Studio",
+    "description": "Micrófono profesional para grabaciones y streaming, con soporte antivibración y filtro pop.",
+    "price": 8999,
+    "stock": 330,
+    "imageUrl": "https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 19,
+    "name": "Barra de sonido Cinema 2.1",
+    "category": "Audio",
+    "brand": "Cinema",
+    "description": "Barra de sonido con subwoofer inalámbrico, sonido envolvente y conectividad HDMI ARC.",
+    "price": 13999,
+    "stock": 210,
+    "imageUrl": "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 20,
+    "name": "Auriculares gamer Vortex",
+    "category": "Audio",
+    "brand": "Vortex",
+    "description": "Auriculares con sonido envolvente 7.1, micrófono desmontable y almohadillas de memoria.",
+    "price": 6499,
+    "stock": 480,
+    "imageUrl": "https://images.unsplash.com/photo-1599669454699-248893623440?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 21,
+    "name": "Parlante Bluetooth Room 360",
+    "category": "Audio",
+    "brand": "Boom",
+    "description": "Parlante de sonido circular 360°, batería de larga duración y emparejamiento múltiple.",
+    "price": 7999,
+    "stock": 390,
+    "imageUrl": "https://images.unsplash.com/photo-1589003077984-894e133dabab?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 22,
+    "name": "Monitor UltraWide 27\"",
+    "category": "Tecnología",
+    "brand": "View",
+    "description": "Monitor de 27 pulgadas con panel IPS, resolución QHD y biseles finos para trabajar mejor.",
+    "price": 16999,
+    "stock": 260,
+    "imageUrl": "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 23,
+    "name": "Mouse inalámbrico Glide",
+    "category": "Tecnología",
+    "brand": "Glide",
+    "description": "Mouse ergonómico silencioso con sensor preciso, rueda de desplazamiento y batería recargable.",
+    "price": 2999,
+    "stock": 980,
+    "imageUrl": "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 24,
+    "name": "Tablet Nova Tab 11",
+    "category": "Tecnología",
+    "brand": "Nova",
+    "description": "Tablet de 11 pulgadas con pantalla nítida, 128 GB de almacenamiento y lápiz compatible.",
+    "price": 15999,
+    "stock": 300,
+    "imageUrl": "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 25,
+    "name": "Juego de sábanas Lino Suave",
+    "category": "Hogar",
+    "brand": "Casa Clara",
+    "description": "Sábanas de algodón con textura de lino, frescas y suaves, para una cama de dos plazas.",
+    "price": 5499,
+    "stock": 620,
+    "imageUrl": "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 26,
+    "name": "Cafetera de goteo Aroma",
+    "category": "Hogar",
+    "brand": "Aroma",
+    "description": "Cafetera de goteo con jarra de vidrio, filtro reutilizable y función de mantener caliente.",
+    "price": 4599,
+    "stock": 540,
+    "imageUrl": "https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 27,
+    "name": "Organizador de escritorio Bambú",
+    "category": "Hogar",
+    "brand": "Bosque",
+    "description": "Organizador de bambú con compartimentos para útiles, cuadernos y accesorios de escritorio.",
+    "price": 2599,
+    "stock": 880,
+    "imageUrl": "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 28,
+    "name": "Campera liviana Urban Shell",
+    "category": "Moda",
+    "brand": "Urban",
+    "description": "Campera rompeviento liviana y plegable, con capucha ajustable y bolsillos con cierre.",
+    "price": 7999,
+    "stock": 430,
+    "imageUrl": "https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 29,
+    "name": "Buzo oversize Cloud",
+    "category": "Moda",
+    "brand": "Cloud",
+    "description": "Buzo de algodón pesado con calce oversize, capucha forrada y bolsillo canguro.",
+    "price": 4999,
+    "stock": 710,
+    "imageUrl": "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 30,
+    "name": "Jean recto Denim Co.",
+    "category": "Moda",
+    "brand": "Denim Co.",
+    "description": "Jean de corte recto con denim elástico de alto gramaje, resistente y cómodo todo el día.",
+    "price": 6499,
+    "stock": 560,
+    "imageUrl": "https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 31,
+    "name": "Billetera de cuero Fold",
+    "category": "Moda",
+    "brand": "Fold",
+    "description": "Billetera compacta de cuero con protección RFID, espacio para tarjetas y monedas.",
+    "price": 3499,
+    "stock": 920,
+    "imageUrl": "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 32,
+    "name": "Gorra minimalista Cap",
+    "category": "Moda",
+    "brand": "Urban",
+    "description": "Gorra de algodón con visera curva y cierre ajustable, disponible en tonos neutros.",
+    "price": 1799,
+    "stock": 1300,
+    "imageUrl": "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 33,
+    "name": "Colchoneta de yoga Flow",
+    "category": "Deportes",
+    "brand": "Flow",
+    "description": "Colchoneta antideslizante de 6 mm con correa de transporte y superficie de doble textura.",
+    "price": 3299,
+    "stock": 750,
+    "imageUrl": "https://images.unsplash.com/photo-1592432678016-e910b452f9a2?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 34,
+    "name": "Mancuernas ajustables 20 kg",
+    "category": "Deportes",
+    "brand": "Run",
+    "description": "Par de mancuernas con discos intercambiables y base de apoyo para entrenar en casa.",
+    "price": 10999,
+    "stock": 190,
+    "imageUrl": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 35,
+    "name": "Bandas elásticas Set Pro",
+    "category": "Deportes",
+    "brand": "Flow",
+    "description": "Set de cinco bandas de resistencia con distintos niveles, bolsa de transporte y guía de ejercicios.",
+    "price": 2199,
+    "stock": 1150,
+    "imageUrl": "https://images.unsplash.com/photo-1598289431512-b97b0917affc?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 36,
+    "name": "Pelota de fútbol Match",
+    "category": "Deportes",
+    "brand": "Match",
+    "description": "Pelota de fútbol cosida a máquina con cubierta resistente y buen control en todo tipo de cancha.",
+    "price": 2799,
+    "stock": 840,
+    "imageUrl": "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 37,
+    "name": "Bicicleta urbana City Ride",
+    "category": "Deportes",
+    "brand": "City",
+    "description": "Bicicleta de paseo con cuadro liviano, cambios de 7 velocidades y canasto delantero.",
+    "price": 24999,
+    "stock": 140,
+    "imageUrl": "https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 38,
+    "name": "Sérum facial Vitamina C",
+    "category": "Belleza",
+    "brand": "Hydra",
+    "description": "Sérum concentrado con vitamina C y ácido hialurónico para iluminar y unificar el tono.",
+    "price": 3199,
+    "stock": 1020,
+    "imageUrl": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 39,
+    "name": "Perfume floral Bloom 50 ml",
+    "category": "Belleza",
+    "brand": "Bloom",
+    "description": "Fragancia floral fresca con notas de jazmín y peonía, presentación de 50 ml.",
+    "price": 6999,
+    "stock": 470,
+    "imageUrl": "https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 40,
+    "name": "Secador de pelo Air Style",
+    "category": "Belleza",
+    "brand": "Air",
+    "description": "Secador de 1800 W con tecnología iónica, tres temperaturas y dos concentradores.",
+    "price": 5799,
+    "stock": 380,
+    "imageUrl": "https://images.unsplash.com/photo-1522338140262-f46f5913618a?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 41,
+    "name": "Protector solar Solar 50+",
+    "category": "Belleza",
+    "brand": "Solar",
+    "description": "Protector solar facial FPS 50+ de textura liviana, resistente al agua y sin residuo blanco.",
+    "price": 2299,
+    "stock": 1450,
+    "imageUrl": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 42,
+    "name": "Paleta de sombras Sunset",
+    "category": "Belleza",
+    "brand": "Studio",
+    "description": "Paleta de doce sombras de alta pigmentación en tonos cálidos, con acabados mate y satinados.",
+    "price": 3899,
+    "stock": 690,
+    "imageUrl": "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 43,
+    "name": "Novela \"El jardín de las horas\"",
+    "category": "Libros",
+    "brand": "Ediciones Nexo",
+    "description": "Una novela íntima sobre la memoria y los vínculos, elegida entre los mejores libros del año.",
+    "price": 2499,
+    "stock": 520,
+    "imageUrl": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 44,
+    "name": "Libro de cocina \"Cocina simple\"",
+    "category": "Libros",
+    "brand": "Ediciones Nexo",
+    "description": "Más de cien recetas fáciles con ingredientes de todos los días, explicadas paso a paso.",
+    "price": 2899,
+    "stock": 610,
+    "imageUrl": "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 45,
+    "name": "Guía de fotografía \"Luz natural\"",
+    "category": "Libros",
+    "brand": "Lumen",
+    "description": "Técnicas y ejercicios para dominar la luz natural y mejorar tus fotos con cualquier cámara.",
+    "price": 3199,
+    "stock": 430,
+    "imageUrl": "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 46,
+    "name": "Cuaderno de notas A5",
+    "category": "Libros",
+    "brand": "Papel",
+    "description": "Cuaderno de tapa dura con papel de 100 g, cinta marcadora y bolsillo interior.",
+    "price": 1299,
+    "stock": 1700,
+    "imageUrl": "https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 47,
+    "name": "Novela gráfica \"Ciudad Azul\"",
+    "category": "Libros",
+    "brand": "Lumen",
+    "description": "Una historia visual de misterio y amistad, con ilustraciones a todo color.",
+    "price": 2799,
+    "stock": 480,
+    "imageUrl": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 48,
+    "name": "Libro infantil \"El viaje de Nube\"",
+    "category": "Libros",
+    "brand": "Papel",
+    "description": "Un cuento ilustrado sobre curiosidad y valentía, ideal para leer en familia.",
+    "price": 1999,
+    "stock": 980,
+    "imageUrl": "https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 49,
+    "name": "Libro de negocios \"Ideas que crecen\"",
+    "category": "Libros",
+    "brand": "Ediciones Nexo",
+    "description": "Herramientas prácticas para convertir una idea en un proyecto sostenible.",
+    "price": 3499,
+    "stock": 390,
+    "imageUrl": "https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 50,
+    "name": "Silla ergonómica Focus",
+    "category": "Oficina",
+    "brand": "Focus",
+    "description": "Silla de escritorio con soporte lumbar, apoyabrazos regulables y respaldo de malla transpirable.",
+    "price": 18999,
+    "stock": 170,
+    "imageUrl": "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 51,
+    "name": "Escritorio compacto Nord",
+    "category": "Oficina",
+    "brand": "Nord",
+    "description": "Escritorio de líneas simples con estructura de acero y superficie resistente a rayaduras.",
+    "price": 12999,
+    "stock": 220,
+    "imageUrl": "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 52,
+    "name": "Agenda 2027 Semanal",
+    "category": "Oficina",
+    "brand": "Papel",
+    "description": "Agenda semanal con espacio para notas, calendario anual y cierre con elástico.",
+    "price": 1899,
+    "stock": 1350,
+    "imageUrl": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 53,
+    "name": "Lámpara de escritorio Led",
+    "category": "Oficina",
+    "brand": "Lumen",
+    "description": "Lámpara LED con brazos articulados, temperatura de color regulable y bajo consumo.",
+    "price": 3699,
+    "stock": 640,
+    "imageUrl": "https://images.unsplash.com/photo-1534073828943-f801091bb18c?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 54,
+    "name": "Set de bolígrafos Ink",
+    "category": "Oficina",
+    "brand": "Papel",
+    "description": "Set de seis bolígrafos de tinta fluida con cuerpo metálico y estuche de presentación.",
+    "price": 1499,
+    "stock": 1250,
+    "imageUrl": "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 55,
+    "name": "Pizarra magnética Blanca",
+    "category": "Oficina",
+    "brand": "Focus",
+    "description": "Pizarra blanca magnética de 60 × 45 cm con marco de aluminio y kit de imanes.",
+    "price": 4299,
+    "stock": 410,
+    "imageUrl": "https://images.unsplash.com/photo-1587614382346-4ec70e388b28?auto=format&fit=crop&w=900&q=85"
+  },
+  {
+    "id": 56,
+    "name": "Organizador de cables Desk",
+    "category": "Oficina",
+    "brand": "Focus",
+    "description": "Kit de organizadores y sujetacables adhesivos para mantener el escritorio siempre ordenado.",
+    "price": 999,
+    "stock": 1900,
+    "imageUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=900&q=85"
   }
 ]

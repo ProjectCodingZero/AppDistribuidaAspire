@@ -3,37 +3,61 @@
 @implements IDisposable
 @using AppDistribuidaAspire.Web.Models
 @using AppDistribuidaAspire.Web.Services
+@using AppDistribuidaAspire.Web.Components.Shared
 @using Microsoft.AspNetCore.Components.Authorization
 @inject CartService CartState
 @inject PaymentsApiClient PaymentsApiClient
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 
-<PageTitle>Tu carrito | MercadoClone</PageTitle>
+<PageTitle>Tu carrito | Nexo</PageTitle>
 
 <main class="cart-page">
-	<a class="continue-shopping" href="/">← Seguir comprando</a>
-	<h1>Tu carrito</h1>
+	<header class="checkout-header">
+		<Brand />
+		<ol class="checkout-steps" aria-label="Pasos de compra">
+			<li class="is-active"><span>1</span> Carrito</li>
+			<li><span>2</span> Pago</li>
+			<li><span>3</span> Confirmación</li>
+		</ol>
+	</header>
+
+	<div class="cart-heading">
+		<a class="continue-shopping" href="/">← Seguir comprando</a>
+		<h1>
+			Tu carrito
+			@if (CartState.ItemCount > 0)
+			{
+				<span class="cart-heading-count">@CartState.ItemCount</span>
+			}
+		</h1>
+	</div>
 
 	@if (!IsCartReady)
 	{
 		<section class="empty-state" role="status">
+			<span class="empty-state-icon" aria-hidden="true">◌</span>
 			<p>@(CatalogError ?? "Cargando el carrito...")</p>
 		</section>
 	}
 	else if (CartState.Items.Count == 0)
 	{
 		<section class="empty-state">
-			<span aria-hidden="true">🛒</span>
+			<span class="empty-state-icon" aria-hidden="true">🛒</span>
 			<h2>Tu carrito está vacío</h2>
 			<p>Agregá productos del catálogo para continuar.</p>
-			<a class="hero-cta" href="/">Ver productos</a>
+			<a class="hero-cta" href="/">Ver productos <span aria-hidden="true">→</span></a>
 		</section>
 	}
 	else
 	{
 		<div class="cart-layout">
 			<section class="cart-items" aria-label="Productos en el carrito">
+				<div class="cart-items-head" aria-hidden="true">
+					<span>Producto</span>
+					<span>Cantidad</span>
+					<span>Total</span>
+				</div>
 				@foreach (var line in CartState.Items)
 				{
 					<article class="cart-line" @key="line.Product.Id">
@@ -41,19 +65,19 @@
 						<div class="cart-line-details">
 							<p class="product-category">@line.Product.Brand · @line.Product.Category</p>
 							<h2>@line.Product.Name</h2>
-							<p class="cart-line-price">$ @line.Product.Price.ToString("N0")</p>
-							<div class="quantity-controls" aria-label="Cantidad de @line.Product.Name">
-								<button type="button" aria-label="Quitar una unidad" @onclick="() => CartState.SetQuantityAsync(line.Product.Id, line.Quantity - 1)">−</button>
-								<span>@line.Quantity</span>
-								<button type="button"
-										aria-label="Agregar una unidad"
-										disabled="@(line.Quantity >= line.Product.Stock)"
-										@onclick="() => CartState.SetQuantityAsync(line.Product.Id, line.Quantity + 1)">+</button>
-							</div>
+							<p class="cart-line-price">$ @line.Product.Price.ToString("N0") <span>c/u</span></p>
+						</div>
+						<div class="quantity-controls" aria-label="Cantidad de @line.Product.Name">
+							<button type="button" aria-label="Quitar una unidad" @onclick="() => CartState.SetQuantityAsync(line.Product.Id, line.Quantity - 1)">−</button>
+							<span>@line.Quantity</span>
+							<button type="button"
+									aria-label="Agregar una unidad"
+									disabled="@(line.Quantity >= line.Product.Stock)"
+									@onclick="() => CartState.SetQuantityAsync(line.Product.Id, line.Quantity + 1)">+</button>
 						</div>
 						<div class="cart-line-total">
 							<strong>$ @((line.Product.Price * line.Quantity).ToString("N0"))</strong>
-							<button class="remove-item-button" type="button" @onclick="() => CartState.RemoveAsync(line.Product.Id)">Eliminar</button>
+							<button class="remove-item-button" type="button" @onclick="() => CartState.RemoveAsync(line.Product.Id)">Quitar</button>
 						</div>
 					</article>
 				}
@@ -61,42 +85,98 @@
 
 			<aside class="cart-summary">
 				<h2>Resumen de compra</h2>
-				<div><span>Productos (@CartState.ItemCount)</span><strong>$ @CartState.Total.ToString("N0")</strong></div>
-				<div class="cart-grand-total"><span>Total</span><strong>$ @CartState.Total.ToString("N0")</strong></div>
-				<button class="checkout-button" type="button" disabled="@(!IsCartReady || IsCheckingOut)" @onclick="CheckoutAsync">
-					@CheckoutButtonText
+				<div class="summary-row">
+					<span>Productos (@CartState.ItemCount)</span>
+					<strong>$ @CartState.Total.ToString("N0")</strong>
+				</div>
+				<div class="summary-row">
+					<span>Envío</span>
+					<strong class="summary-free">Gratis</strong>
+				</div>
+
+				<div class="free-shipping">
+					<p>@FreeShippingMessage</p>
+					<div class="free-shipping-track" aria-hidden="true">
+						<span style="width: @(FreeShippingProgress)%"></span>
+					</div>
+				</div>
+
+				<div class="cart-grand-total">
+					<span>Total</span>
+					<strong>$ @CartState.Total.ToString("N0")</strong>
+				</div>
+
+				<button class="checkout-button" type="button" disabled="@(!CanCheckout)" @onclick="CheckoutAsync">
+					@if (IsCheckingOut)
+					{
+						<span class="button-spinner" aria-hidden="true"></span>
+					}
+					<span>@CheckoutButtonText</span>
+					@if (!IsCheckingOut)
+					{
+						<span aria-hidden="true">→</span>
+					}
 				</button>
+
+				<p class="secure-note">
+					<span class="secure-icon" aria-hidden="true">🔒</span>
+					Pago protegido por Mercado Pago
+				</p>
+
 				@if (CheckoutNote is not null)
 				{
-					<p class="sandbox-note">@CheckoutNote</p>
+					<p class="@(CheckoutConfig.HasWarning || !CheckoutConfig.IsReady ? "config-warning" : "sandbox-note")">@CheckoutNote</p>
 				}
 				@if (CheckoutError is not null)
 				{
 					<p class="checkout-error" role="alert">@CheckoutError</p>
 				}
+
+				<div class="payment-methods" aria-label="Medios de pago disponibles">
+					<span>VISA</span>
+					<span>Mastercard</span>
+					<span>Amex</span>
+					<span>Mercado Pago</span>
+				</div>
 			</aside>
 		</div>
 	}
 </main>
 
 @code {
+	private const decimal FreeShippingThreshold = 10000m;
+
 	private bool IsCheckingOut { get; set; }
 	private bool IsLoading { get; set; } = true;
 	private bool IsCartReady { get; set; }
 	private string? CheckoutError { get; set; }
 	private string? CatalogError { get; set; }
 	private IReadOnlyList<StoreProduct> Products { get; set; } = [];
-	private CheckoutConfig CheckoutConfig { get; set; } = new("MercadoPago", false);
+	private CheckoutConfig CheckoutConfig { get; set; } = new("MercadoPago", false, true, null);
+
+	private bool CanCheckout => IsCartReady && !IsCheckingOut && CheckoutConfig.IsReady;
 
 	private string CheckoutButtonText => IsCheckingOut
 		? (CheckoutConfig.IsDemo ? "Procesando compra..." : "Conectando con Mercado Pago...")
-		: (CheckoutConfig.IsDemo ? "Finalizar compra" : "Continuar con Mercado Pago");
+		: !CheckoutConfig.IsReady
+			? "Configurá Mercado Pago"
+			: CheckoutConfig.IsDemo
+				? "Finalizar compra"
+				: "Pagar con Mercado Pago";
 
 	private string? CheckoutNote => CheckoutConfig.IsDemo
 		? "Modo de prueba: la compra se aprueba automáticamente, sin cobro real ni cuenta de Mercado Pago."
-		: CheckoutConfig.AutoApprove
-			? "La compra se registra como aprobada al iniciar el checkout. No se realizará ningún cobro real."
-			: null;
+		: CheckoutConfig.Warning
+			?? (CheckoutConfig.AutoApprove
+				? "La compra se registra como aprobada al iniciar el checkout. No se realizará ningún cobro real."
+				: null);
+
+	private decimal RemainingForFreeShipping => Math.Max(0, FreeShippingThreshold - CartState.Total);
+	private int FreeShippingProgress => (int)Math.Min(100, CartState.Total / FreeShippingThreshold * 100);
+
+	private string FreeShippingMessage => RemainingForFreeShipping <= 0
+		? "¡Tenés envío gratis en este pedido!"
+		: $"Te faltan $ {RemainingForFreeShipping.ToString("N0")} para el envío gratis.";
 
 	protected override void OnInitialized() => CartState.Changed += OnCartChanged;
 
@@ -137,7 +217,7 @@
 
 	private async Task CheckoutAsync()
 	{
-		if (!IsCartReady || CartState.Items.Count == 0 || IsCheckingOut)
+		if (!CanCheckout || CartState.Items.Count == 0)
 		{
 			return;
 		}
@@ -157,8 +237,19 @@
 			var items = CartState.Items
 				.Select(line => new CartCheckoutItem(line.Product.Id, line.Quantity))
 				.ToArray();
-			var checkout = await PaymentsApiClient.CreateCheckoutAsync(items);
+			var checkout = await PaymentsApiClient.CreateCheckoutAsync(items, Navigation.BaseUri);
+
+			if (string.IsNullOrWhiteSpace(checkout.CheckoutUrl))
+			{
+				CheckoutError = "Mercado Pago no devolvió una URL de pago. Intentá nuevamente.";
+				return;
+			}
+
 			Navigation.NavigateTo(checkout.CheckoutUrl, forceLoad: true);
+		}
+		catch (InvalidOperationException exception)
+		{
+			CheckoutError = exception.Message;
 		}
 		catch (HttpRequestException)
 		{

@@ -13,6 +13,7 @@ public class ThisContext : IdentityDbContext<IdentityUser>
     }
 
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
+    public DbSet<ProductStock> ProductStocks => Set<ProductStock>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -20,6 +21,10 @@ public class ThisContext : IdentityDbContext<IdentityUser>
         builder.Entity<PaymentOrder>()
             .HasIndex(order => order.ExternalReference)
             .IsUnique();
+
+        builder.Entity<ProductStock>()
+            .ToTable("ProductStocks")
+            .HasKey(stock => stock.ProductId);
 
         builder.Entity<PaymentOrder>()
             .HasIndex(order => order.UserId);
